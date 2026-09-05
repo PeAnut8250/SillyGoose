@@ -189,7 +189,7 @@ class YoutubeService {
             final trackName = item['trackName']?.toString() ?? '';
             final artistName = item['artistName']?.toString() ?? '';
             if (trackName.isNotEmpty) {
-              suggestions.add('\$trackName - \$artistName');
+              suggestions.add('$trackName - $artistName');
             } else if (artistName.isNotEmpty) {
               suggestions.add(artistName);
             }
