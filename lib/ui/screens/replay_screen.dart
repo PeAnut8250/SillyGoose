@@ -17,6 +17,8 @@ import 'package:palette_generator/palette_generator.dart';
 import 'replay_story_screen.dart';
 import 'artist_screen.dart';
 import 'settings_screen.dart';
+import '../../data/settings_service.dart';
+import '../components/liquid_glass.dart';
 class ReplayScreen extends StatefulWidget {
   const ReplayScreen({super.key});
 
@@ -43,7 +45,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
       body: DynamicBackground(
         child: SafeArea(
           child: ListenableBuilder(
-            listenable: Listenable.merge([HistoryService(), AudioService()]),
+            listenable: Listenable.merge([HistoryService(), AudioService(), SettingsService()]),
             builder: (context, _) {
               final hs = HistoryService();
               
@@ -70,47 +72,14 @@ class _ReplayScreenState extends State<ReplayScreen> {
               final totalPlays = hs.getTotalPlays(bucketKey: bucketKey);
               final topArtist = topArtists.isNotEmpty ? topArtists.first : null;
               
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            onTap: () => context.pop(),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              color: Colors.transparent,
-                              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context, rootNavigator: true).push(
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                                  transitionDuration: Duration.zero,
-                                  reverseTransitionDuration: Duration.zero,
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.person, color: Colors.white, size: 24),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
+              return Stack(
+                children: [
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 80), // Padding to replace the removed Header
+
                     // Title
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -336,8 +305,57 @@ class _ReplayScreenState extends State<ReplayScreen> {
                     const SizedBox(height: 200), // Bottom padding
                   ],
                 ),
-              );
-            },
+              ),
+              // Fixed Header
+              Positioned(
+                top: 16.0,
+                left: 16.0,
+                right: 16.0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: LiquidGlass(
+                        forceOpaque: !SettingsService().liquidGlass,
+                        child: GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            color: Colors.transparent, // LiquidGlass background
+                            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                          ),
+                        ),
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: LiquidGlass(
+                        forceOpaque: !SettingsService().liquidGlass,
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context, rootNavigator: true).push(
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                transitionDuration: Duration.zero,
+                                reverseTransitionDuration: Duration.zero,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12), // Matching the back button padding
+                            color: Colors.transparent,
+                            child: const Icon(Icons.person, color: Colors.white, size: 24),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
           ),
         ),
       ),
