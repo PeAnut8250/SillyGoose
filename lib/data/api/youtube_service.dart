@@ -513,11 +513,31 @@ class YoutubeService {
       ).toList();
       
       if (muxedStreams.isNotEmpty) {
-        if (targetQuality == 'Low' || targetQuality == 'Normal') {
-          return muxedStreams.sortByVideoQuality().last.url.toString(); // lowest
+        // Sort by bitrate ascending so index 0 = lowest, last = highest
+        final sorted = muxedStreams.toList()
+          ..sort((a, b) => a.bitrate.bitsPerSecond.compareTo(b.bitrate.bitsPerSecond));
+
+        // Map quality tiers to stream indices
+        // Low    → lowest bitrate stream
+        // Normal → 25th percentile (second lowest if available)
+        // High   → 75th percentile (second highest if available)
+        // Lossless → highest bitrate stream
+        StreamInfo picked;
+        if (targetQuality == 'Low') {
+          picked = sorted.first;
+        } else if (targetQuality == 'Normal') {
+          final idx = (sorted.length * 0.25).floor().clamp(0, sorted.length - 1);
+          picked = sorted[idx];
+        } else if (targetQuality == 'High') {
+          final idx = (sorted.length * 0.75).floor().clamp(0, sorted.length - 1);
+          picked = sorted[idx];
         } else {
-          return muxedStreams.withHighestBitrate().url.toString(); // highest
+          // Lossless — pick highest bitrate
+          picked = sorted.last;
         }
+
+        print('[Quality] $targetQuality → ${picked.bitrate} (${picked.size})');
+        return picked.url.toString();
       }
       
       return null;

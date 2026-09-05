@@ -1,5 +1,5 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import '../../data/settings_service.dart';
 
 class SourcesScreen extends StatefulWidget {
@@ -10,8 +10,59 @@ class SourcesScreen extends StatefulWidget {
 }
 
 class _SourcesScreenState extends State<SourcesScreen> {
-  bool _rickysAddon = true;
-  bool _jioSaavn = true;
+  String _rickysStatus = 'Checking...';
+  String _jioSaavnStatus = 'Checking...';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSources();
+  }
+
+  Future<void> _checkSources() async {
+    _checkUrl(
+      'https://monochrome.rickyaddons.dpdns.org',
+      onSuccess: () { if (mounted) setState(() => _rickysStatus = 'Reachable'); },
+      onError: (e) { if (mounted) setState(() => _rickysStatus = "Can't reach it — $e"); },
+    );
+    _checkUrl(
+      'https://www.jiosaavn.com',
+      onSuccess: () { if (mounted) setState(() => _jioSaavnStatus = 'High Quality • 320kbps'); },
+      onError: (e) { if (mounted) setState(() => _jioSaavnStatus = "Can't reach it — $e"); },
+    );
+  }
+
+  Future<void> _checkUrl(
+    String url, {
+    required VoidCallback onSuccess,
+    required void Function(String) onError,
+  }) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+    try {
+      final uri = Uri.parse(url);
+      final req = await client.headUrl(uri);
+      final resp = await req.close();
+      await resp.drain<void>();
+      client.close();
+      if (resp.statusCode < 500) {
+        onSuccess();
+      } else {
+        onError('HTTP ${resp.statusCode}');
+      }
+    } on SocketException catch (e) {
+      client.close();
+      onError(e.message);
+    } catch (e) {
+      client.close();
+      onError(e.toString().split(':').last.trim());
+    }
+  }
+
+  Color _hexToColor(String hex) {
+    if (hex.startsWith('#')) hex = hex.substring(1);
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +71,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
       builder: (context, _) {
         final settings = SettingsService();
         final bgColor = _hexToColor(settings.settingsBgColor);
+
         return Theme(
           data: ThemeData.dark().copyWith(
             scaffoldBackgroundColor: bgColor,
@@ -31,124 +83,146 @@ class _SourcesScreenState extends State<SourcesScreen> {
           child: Builder(
             builder: (context) {
               return Scaffold(
-            backgroundColor: bgColor,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
-            title: Text('Sources', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
-            centerTitle: true,
-          ),
-          body: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            children: [
-              const SizedBox(height: 16),
-              Text(
-                'Sources',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -1.0,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'SOURCES — TRIED IN THIS ORDER',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    _buildSourceTile(
-                      index: '1',
-                      icon: Icons.extension,
-                      title: "Ricky's Addon",
-                      subtitle: "Can't reach it right now — Unable to resolve host 'monochrome.rickyaddons.dpdns.org': No address",
-                      trailing: Switch(
-                        value: _rickysAddon,
-                        onChanged: (v) => setState(() => _rickysAddon = v),
-                        activeColor: Colors.white,
-                        activeTrackColor: Colors.redAccent,
-                        inactiveThumbColor: Colors.grey,
-                        inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                backgroundColor: bgColor,
+                appBar: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
                     ),
-                    _buildSourceTile(
-                      index: '2',
-                      icon: Icons.graphic_eq,
-                      title: "JioSaavn",
-                      subtitle: "High Quality • 320kbps",
-                      trailing: Switch(
-                        value: _jioSaavn,
-                        onChanged: (v) => setState(() => _jioSaavn = v),
-                        activeColor: Colors.white,
-                        activeTrackColor: Colors.redAccent,
-                        inactiveThumbColor: Colors.grey,
-                        inactiveTrackColor: Colors.grey.withOpacity(0.3),
-                      ),
-                    ),
-                    _buildSourceTile(
-                      index: '3',
-                      icon: Icons.play_circle_fill,
-                      title: "YouTube Music",
-                      subtitle: "Lossy - Full catalogue - Radio",
-                      trailing: Text(
-                        'Always on',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    _buildSourceTile(
-                      index: '+',
-                      icon: Icons.add,
-                      title: "Add custom module",
-                      subtitle: "Your own compatible module index. Tried before the built-in one.",
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                        size: 20,
-                      ),
-                      isLast: true,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: Text('Sources',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16)),
+                  centerTitle: true,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                      tooltip: 'Re-check sources',
+                      onPressed: () {
+                        setState(() {
+                          _rickysStatus = 'Checking...';
+                          _jioSaavnStatus = 'Checking...';
+                        });
+                        _checkSources();
+                      },
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "A source that doesn't have the track, or can't be reached, is stepped over rather than failing playback — the next one down plays it instead. Anything ranked above YouTube is offered a YouTube track's recording first, and keeps it if what it returns is better than what YouTube would have served.",
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  fontSize: 13,
-                  height: 1.4,
+                body: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  children: [
+                    const SizedBox(height: 16),
+                    Text(
+                      'Sources',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'SOURCES — TRIED IN THIS ORDER',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildSourceTile(
+                            context: context,
+                            enabled: settings.rickysAddon,
+                            index: '1',
+                            icon: Icons.extension,
+                            title: "Ricky's Addon",
+                            subtitle: _rickysStatus,
+                            subtitleColor: _rickysStatus == 'Reachable'
+                                ? Colors.greenAccent
+                                : _rickysStatus == 'Checking...'
+                                    ? Colors.white38
+                                    : Colors.redAccent,
+                            isChecking: _rickysStatus == 'Checking...',
+                            trailing: Switch(
+                              value: settings.rickysAddon,
+                              onChanged: (v) => settings.setBool('rickysAddon', v),
+                              activeColor: Colors.white,
+                              activeTrackColor: Colors.redAccent,
+                              inactiveThumbColor: Colors.grey,
+                              inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          _buildSourceTile(
+                            context: context,
+                            enabled: settings.jioSaavn,
+                            index: '2',
+                            icon: Icons.graphic_eq,
+                            title: "JioSaavn",
+                            subtitle: _jioSaavnStatus,
+                            subtitleColor: _jioSaavnStatus.startsWith('High Quality')
+                                ? Colors.greenAccent
+                                : _jioSaavnStatus == 'Checking...'
+                                    ? Colors.white38
+                                    : Colors.redAccent,
+                            isChecking: _jioSaavnStatus == 'Checking...',
+                            trailing: Switch(
+                              value: settings.jioSaavn,
+                              onChanged: (v) => settings.setBool('jioSaavn', v),
+                              activeColor: Colors.white,
+                              activeTrackColor: Colors.redAccent,
+                              inactiveThumbColor: Colors.grey,
+                              inactiveTrackColor: Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          _buildSourceTile(
+                            context: context,
+                            enabled: true,
+                            index: '3',
+                            icon: Icons.play_circle_fill,
+                            title: "YouTube Music",
+                            subtitle: "Lossy · Full catalogue · Radio",
+                            subtitleColor: Colors.greenAccent,
+                            isLast: true,
+                            trailing: Text(
+                              'Always on',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "A source that doesn't have the track, or can't be reached, is stepped over rather than failing playback — the next one down plays it instead. Anything ranked above YouTube is offered a YouTube track's recording first, and keeps it if what it returns is better than what YouTube would have served.",
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 100),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 100),
-            ],
-          ),
-        );
+              );
             },
           ),
         );
@@ -157,19 +231,26 @@ class _SourcesScreenState extends State<SourcesScreen> {
   }
 
   Widget _buildSourceTile({
+    required BuildContext context,
     required String index,
     required IconData icon,
     required String title,
     required String subtitle,
+    Color? subtitleColor,
+    bool isChecking = false,
+    bool enabled = true,
     required Widget trailing,
     bool isLast = false,
   }) {
-    return Column(
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      opacity: enabled ? 1.0 : 0.35,
+      child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
                 width: 24,
@@ -181,11 +262,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                   ),
                 ),
               ),
-              Icon(
-                icon,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                size: 24,
-              ),
+              Icon(icon, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), size: 24),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -200,13 +277,39 @@ class _SourcesScreenState extends State<SourcesScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                        fontSize: 13,
-                        height: 1.3,
-                      ),
+                    Row(
+                      children: [
+                        if (isChecking)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6.0),
+                            child: SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white38),
+                            ),
+                          )
+                        else if (subtitleColor != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 5.0),
+                            child: Icon(
+                              subtitle.contains("Can't") ? Icons.error_outline : Icons.circle,
+                              color: subtitleColor,
+                              size: subtitle.contains("Can't") ? 13 : 7,
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: subtitleColor ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              fontSize: 13,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -224,12 +327,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
             indent: 64,
           ),
       ],
+      ),
     );
-  }
-
-  Color _hexToColor(String hex) {
-    if (hex.startsWith('#')) hex = hex.substring(1);
-    if (hex.length == 6) hex = 'FF$hex';
-    return Color(int.parse(hex, radix: 16));
   }
 }

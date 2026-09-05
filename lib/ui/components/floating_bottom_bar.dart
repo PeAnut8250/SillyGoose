@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
+import '../../data/app_localizations.dart';
 import 'liquid_glass.dart';
 
 class FloatingBottomBar extends StatefulWidget {
@@ -148,6 +149,7 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                         
                         IconData icon;
                         String label;
+                        final l10n = AppLocalizations.of(context);
                         switch (index) {
                           case 1: 
                             icon = Icons.explore; 
@@ -155,11 +157,11 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                             break;
                           case 2: 
                             icon = Icons.library_music_rounded; 
-                            label = 'Library';
+                            label = l10n.library;
                             break;
                           default: 
                             icon = Icons.home_rounded; 
-                            label = 'Home';
+                            label = l10n.home;
                             break;
                         }
                         

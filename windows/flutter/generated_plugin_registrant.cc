@@ -8,6 +8,7 @@
 
 #include <connectivity_plus/connectivity_plus_windows_plugin.h>
 #include <dynamic_color/dynamic_color_plugin_c_api.h>
+#include <flutter_volume_controller/flutter_volume_controller_plugin_c_api.h>
 #include <just_audio_windows/just_audio_windows_plugin.h>
 #include <share_plus/share_plus_windows_plugin_c_api.h>
 #include <url_launcher_windows/url_launcher_windows.h>
@@ -18,6 +19,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("ConnectivityPlusWindowsPlugin"));
   DynamicColorPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("DynamicColorPluginCApi"));
+  FlutterVolumeControllerPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterVolumeControllerPluginCApi"));
   JustAudioWindowsPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("JustAudioWindowsPlugin"));
   SharePlusWindowsPluginCApiRegisterWithRegistrar(

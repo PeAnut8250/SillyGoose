@@ -30,6 +30,8 @@ class SettingsService extends ChangeNotifier {
   bool dontRepeatSession = false;
   bool stopMusicOnClose = false;
   bool hideVolumeBar = false;
+  bool rickysAddon = true;
+  bool jioSaavn = true;
 
   // Doubles / Strings
   double crossfade = 0.0;
@@ -72,6 +74,8 @@ class SettingsService extends ChangeNotifier {
     dontRepeatSession = _prefs.getBool('dontRepeatSession') ?? false;
     stopMusicOnClose = _prefs.getBool('stopMusicOnClose') ?? false;
     hideVolumeBar = _prefs.getBool('hideVolumeBar') ?? false;
+    rickysAddon = _prefs.getBool('rickysAddon') ?? true;
+    jioSaavn = _prefs.getBool('jioSaavn') ?? true;
 
     crossfade = _prefs.getDouble('crossfade') ?? 0.0;
     songCacheLimit = _prefs.getDouble('songCacheLimit') ?? 512.0;
@@ -109,6 +113,8 @@ class SettingsService extends ChangeNotifier {
       case 'dontRepeatSession': dontRepeatSession = value; break;
       case 'stopMusicOnClose': stopMusicOnClose = value; break;
       case 'hideVolumeBar': hideVolumeBar = value; break;
+      case 'rickysAddon': rickysAddon = value; break;
+      case 'jioSaavn': jioSaavn = value; break;
     }
     notifyListeners();
   }

@@ -4,6 +4,8 @@ import 'dart:ui';
 import '../../data/settings_service.dart';
 import '../../data/api/audio_service.dart';
 import '../../data/history_service.dart';
+import '../../data/network_service.dart';
+import '../../data/app_localizations.dart';
 import '../components/liquid_glass.dart';
 import '../components/mini_player.dart';
 import 'sources_screen.dart';
@@ -41,14 +43,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  void _showLanguagePicker(BuildContext context) {
+    final currentLang = SettingsService().appLanguage;
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, scrollCtrl) => Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Select Language',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollCtrl,
+                  itemCount: kSupportedLanguages.length,
+                  itemBuilder: (_, i) {
+                    final lang = kSupportedLanguages[i];
+                    final isSelected = lang.displayName == currentLang;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isSelected
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.08),
+                        child: Text(
+                          lang.locale.languageCode.toUpperCase().substring(0, 2),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.black : Colors.white70,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        lang.displayName,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text(
+                        lang.nativeName,
+                        style: const TextStyle(color: Colors.white38, fontSize: 12),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle, color: Colors.white)
+                          : null,
+                      onTap: () {
+                        SettingsService().setString('appLanguage', lang.displayName);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([SettingsService(), AudioService()]),
+      listenable: Listenable.merge([SettingsService(), AudioService(), NetworkService()]),
       builder: (context, _) {
         final settings = SettingsService();
+        final network = NetworkService();
         final track = AudioService().currentTrack;
         final bgColor = _hexToColor(settings.settingsBgColor);
+        final l10n = AppLocalizations.of(context);
         
         return Theme(
           data: ThemeData.dark().copyWith(
@@ -83,7 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               
-              _SettingsHeader('AUDIO QUALITY'),
+              _SettingsHeader(l10n.audioQuality.toUpperCase()),
               _SettingsGroup(
                 children: [
                   _SettingsNavTile(
@@ -100,21 +187,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _SettingsNavTile(
                     icon: Icons.wifi, 
-                    title: 'On Wi-Fi', 
-                    subtitle: 'Active', 
+                    title: l10n.onWifi, 
+                    subtitle: network.isWifi ? '● Active' : 'Not connected', 
+                    subtitleColor: network.isWifi ? Colors.greenAccent : null,
                     valueText: settings.wifiQuality,
-                    onTap: () => _showSelectionDialog(context, 'On Wi-Fi', ['Low', 'Normal', 'High', 'Lossless'], settings.wifiQuality, (val) => settings.setString('wifiQuality', val)),
+                    onTap: () => _showSelectionDialog(context, l10n.onWifi, ['Low', 'Normal', 'High', 'Lossless'], settings.wifiQuality, (val) => settings.setString('wifiQuality', val)),
                   ),
                   _SettingsNavTile(
                     icon: Icons.signal_cellular_alt, 
-                    title: 'On mobile data', 
+                    title: l10n.onMobileData, 
+                    subtitle: network.isMobile ? '● Active' : 'Not connected',
+                    subtitleColor: network.isMobile ? Colors.greenAccent : null,
                     valueText: settings.mobileDataQuality,
-                    onTap: () => _showSelectionDialog(context, 'On mobile data', ['Low', 'Normal', 'High', 'Lossless'], settings.mobileDataQuality, (val) => settings.setString('mobileDataQuality', val)),
+                    onTap: () => _showSelectionDialog(context, l10n.onMobileData, ['Low', 'Normal', 'High', 'Lossless'], settings.mobileDataQuality, (val) => settings.setString('mobileDataQuality', val)),
                   ),
                 ],
               ),
 
-              _SettingsHeader('DOWNLOADS'),
+              _SettingsHeader(l10n.downloads.toUpperCase()),
               _SettingsGroup(
                 children: [
                   _SettingsNavTile(
@@ -314,7 +404,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SettingsHeader('LANGUAGE'),
               _SettingsGroup(
                 children: [
-                  _SettingsNavTile(icon: Icons.language, title: 'App language', subtitle: 'English'),
+                  ListenableBuilder(
+                    listenable: SettingsService(),
+                    builder: (context, _) {
+                      final currentLang = SettingsService().appLanguage;
+                      final native = kSupportedLanguages
+                          .firstWhere((l) => l.displayName == currentLang,
+                              orElse: () => kSupportedLanguages.first)
+                          .nativeName;
+                      final l = AppLocalizations.of(context);
+                      return _SettingsNavTile(
+                        icon: Icons.language,
+                        title: l.appLanguage,
+                        subtitle: '$currentLang ($native)',
+                        onTap: () => _showLanguagePicker(context),
+                      );
+                    },
+                  ),
                 ],
               ),
 
@@ -624,6 +730,7 @@ class _SettingsNavTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Color? subtitleColor;
   final String? valueText;
   final VoidCallback? onTap;
 
@@ -631,6 +738,7 @@ class _SettingsNavTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.subtitleColor,
     this.valueText,
     this.onTap,
   });
@@ -640,7 +748,16 @@ class _SettingsNavTile extends StatelessWidget {
     return ListTile(
       leading: FrostedIcon(icon),
       title: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500)),
-      subtitle: subtitle != null ? Text(subtitle!, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.54), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis) : null,
+      subtitle: subtitle != null
+          ? Text(subtitle!,
+              style: TextStyle(
+                color: subtitleColor ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.54),
+                fontSize: 13,
+                fontWeight: subtitleColor != null ? FontWeight.w600 : FontWeight.normal,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis)
+          : null,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

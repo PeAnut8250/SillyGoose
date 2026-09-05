@@ -14,6 +14,7 @@ import 'package:flutter/cupertino.dart';
 import '../screens/artist_screen.dart';
 import '../screens/queue_screen.dart';
 import '../widgets/audio_device_dropdown.dart';
+import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -35,6 +36,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   String? _uiTrackId;
 
+  double _systemVolume = 0.5;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +45,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _checkVideoTrack();
     AudioService().addListener(_onAudioServiceUpdate);
     SettingsService().addListener(_checkVideoTrack);
+    // Initialise system volume
+    _initSystemVolume();
+  }
+
+  Future<void> _initSystemVolume() async {
+    // Volume controller not needed on Windows/Linux — they use OS-level volume
+    if (Platform.isWindows || Platform.isLinux) {
+      setState(() => _systemVolume = 1.0);
+      return;
+    }
+    try {
+      // On Android, control the MUSIC stream (media volume), not ring or system
+      if (Platform.isAndroid) {
+        await FlutterVolumeController.setAndroidAudioStream(stream: AudioStream.music);
+      }
+      // Only hide system volume popup on iOS
+      if (Platform.isIOS) {
+        await FlutterVolumeController.updateShowSystemUI(false);
+      }
+
+      final v = await FlutterVolumeController.getVolume();
+      if (v != null && mounted) setState(() => _systemVolume = v);
+
+      // Listen for hardware volume button changes
+      FlutterVolumeController.addListener((v) {
+        if (mounted) setState(() => _systemVolume = v);
+      });
+    } catch (e) {
+      print('Volume controller init failed: $e');
+    }
   }
 
   void _onAudioServiceUpdate() {
@@ -181,6 +214,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _disposeVideo(isDisposing: true);
     _volumeOverlay?.remove();
     _volumeOverlay = null;
+    FlutterVolumeController.removeListener();
     super.dispose();
   }
 
@@ -220,9 +254,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     listenable: AudioService(),
                     builder: (context, _) {
                       return _ThinVolumeSlider(
-                        value: AudioService().volume,
+                        value: _systemVolume,
                         onChanged: (val) {
-                          AudioService().setVolume(val);
+                          setState(() => _systemVolume = val);
+                          if (!Platform.isWindows && !Platform.isLinux) {
+                            FlutterVolumeController.setVolume(val);
+                          } else {
+                            // On Windows/Linux fall back to app-level volume
+                            AudioService().setVolume(val);
+                          }
                         },
                       );
                     }

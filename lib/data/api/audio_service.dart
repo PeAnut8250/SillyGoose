@@ -93,6 +93,23 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       if (!kIsWeb && (Platform.isIOS || Platform.isAndroid || Platform.isMacOS)) {
         final session = await AudioSession.instance;
         await session.configure(const AudioSessionConfiguration.music());
+        // Re-request audio focus automatically when we regain it (e.g. after a phone call)
+        session.interruptionEventStream.listen((event) {
+          if (event.begin) {
+            // Interruption began (call, notification audio) — pause
+            _player.pause();
+          } else {
+            // Interruption ended — resume if we were playing before
+            if (event.type == AudioInterruptionType.pause ||
+                event.type == AudioInterruptionType.duck) {
+              _player.play();
+            }
+          }
+        });
+        session.becomingNoisyEventStream.listen((_) {
+          // Headphones unplugged — pause
+          _player.pause();
+        });
       }
     } catch (e) {
       print('Audio session not supported on this platform: $e');
@@ -203,40 +220,120 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
 
   Future<void> _triggerCrossfade() async {
     if (_isCrossfading || !hasNext) return;
-    _isCrossfading = true;
-    
-    final crossfadeMs = (SettingsService().crossfade * 1000).toInt();
+    if (_currentIndex >= _queueData.length - 1) return;
 
-    // Swap active player references
-    final fadingOutPlayer = _activePlayer;
-    _activePlayer = _secondaryPlayer;
-    _secondaryPlayer = fadingOutPlayer;
-    
-    // Pre-mute the new active player
-    await _activePlayer.setVolume(0.0);
-    
-    // Start crossfade loop
-    final steps = (Platform.isWindows || Platform.isLinux) ? 10 : 20;
-    final stepDuration = crossfadeMs ~/ steps;
+    _isCrossfading = true;
+    _currentRequestId++; // Invalidate any parallel playTrack calls
+
+    final crossfadeMs = (SettingsService().crossfade * 1000).toInt();
+    final steps = 20;
+    final stepMs = (crossfadeMs / steps).ceil().clamp(16, 500); // at least 16ms per step
     final volumeStep = 1.0 / steps;
-    
-    // Start playing next track concurrently
-    skipToNext();
-    
-    for (int i = 1; i <= steps; i++) {
-      if (!_isCrossfading) break;
-      await Future.delayed(Duration(milliseconds: stepDuration));
-      
-      await fadingOutPlayer.setVolume(1.0 - (i * volumeStep));
-      if (_activePlayer.playing) {
-        await _activePlayer.setVolume(i * volumeStep);
+
+    final fadingOutPlayer = _activePlayer; // currently playing
+    final fadingInPlayer = _secondaryPlayer;  // pre-buffered next track
+
+    final nextTrack = _queueData[_currentIndex + 1];
+
+    // -- 1. Ensure the fading-in player has the next track loaded --------
+    final preloadedUrl = nextTrack['streamUrl'];
+    if (preloadedUrl == null) {
+      // Next track not pre-buffered yet — fetch its URL first
+      final title  = nextTrack['title']  ?? '';
+      final artist = nextTrack['subtitle'] ?? '';
+      SaavnStream? saavnStream;
+      String? ytUrl;
+      await Future.wait([
+        _saavnService.resolveTopStream(title, artist)
+            .then((v) => saavnStream = v).catchError((_) => null),
+        _ytService.getAudioStreamUrl(nextTrack['id']!)
+            .then((v) => ytUrl = v).catchError((_) => null),
+      ]);
+      if (saavnStream != null) {
+        nextTrack['streamUrl'] = saavnStream!.url;
+        nextTrack['audioSource'] = 'JioSaavn';
+      } else if (ytUrl != null) {
+        nextTrack['streamUrl'] = ytUrl!;
+        nextTrack['audioSource'] = 'YouTube';
+      } else {
+        // Can't get next track URL — abort crossfade and skip normally
+        _isCrossfading = false;
+        skipToNext();
+        return;
       }
     }
-    
-    if (_isCrossfading) {
-      await fadingOutPlayer.stop();
-      await _activePlayer.setVolume(1.0);
+
+    // -- 2. Load next track into the secondary player (fading in) --------
+    try {
+      final url = getProxyUrl(nextTrack['streamUrl']!);
+      await fadingInPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await fadingInPlayer.setVolume(0.0);
+      await fadingInPlayer.seek(Duration.zero);
+      await fadingInPlayer.play();
+    } catch (e) {
+      print('Crossfade: failed to load next track: $e');
       _isCrossfading = false;
+      skipToNext();
+      return;
+    }
+
+    // -- 3. Run the volume fade loop simultaneously ----------------------
+    for (int i = 1; i <= steps; i++) {
+      if (!_isCrossfading) break;
+      await Future.delayed(Duration(milliseconds: stepMs));
+      final fadeOut = (1.0 - i * volumeStep).clamp(0.0, 1.0);
+      final fadeIn  = (i * volumeStep).clamp(0.0, 1.0);
+      await fadingOutPlayer.setVolume(fadeOut);
+      if (fadingInPlayer.playing) {
+        await fadingInPlayer.setVolume(fadeIn);
+      }
+    }
+
+    if (!_isCrossfading) {
+      // Crossfade was cancelled mid-way (e.g. user manually skipped)
+      await fadingOutPlayer.setVolume(1.0);
+      await fadingInPlayer.setVolume(1.0);
+      return;
+    }
+
+    // -- 4. Commit the swap: fading-in player becomes active -------------
+    _activePlayer = fadingInPlayer;
+    _secondaryPlayer = fadingOutPlayer;
+
+    await _secondaryPlayer.stop();
+    await _secondaryPlayer.setVolume(1.0); // Reset for future use
+    await _activePlayer.setVolume(1.0);
+
+    // Advance queue index and update metadata
+    _currentIndex++;
+    _hasPlayedCurrentTrack = false;
+    _preloadedTrackId = null;
+    _isCrossfading = false;
+
+    HistoryService().addTrack(nextTrack);
+    _saveState();
+
+    // Re-register listeners on new active player
+    _setupListeners(_activePlayer);
+
+    if (!Platform.isWindows && !Platform.isLinux) {
+      mediaItem.add(asrv.MediaItem(
+        id: nextTrack['id']!,
+        title: nextTrack['title'] ?? 'Unknown Track',
+        artist: nextTrack['subtitle'] ?? 'Unknown Artist',
+        artUri: nextTrack['imageUrl'] != null ? Uri.parse(nextTrack['imageUrl']!) : null,
+        duration: _activePlayer.duration,
+      ));
+    }
+
+    notifyListeners();
+    _broadcastState();
+
+    // Pre-buffer the next-next track
+    if (isAutoplayEnabled && _currentIndex >= _queueData.length - 2) {
+      _fetchMoreRelatedTracks(nextTrack['id']!);
+    } else {
+      _preloadNextUrls();
     }
   }
 
@@ -747,16 +844,27 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       
       // Perform instantaneous player swap if track is already pre-buffered!
       if (_preloadedTrackId != null && _preloadedTrackId == nextTrack['id']) {
+        _isCrossfading = false; // Cancel any in-progress crossfade
+        
         final temp = _activePlayer;
         _activePlayer = _secondaryPlayer;
         _secondaryPlayer = temp;
         
+        // CRITICAL: Always restore volume to 1.0 before playing.
+        // The secondary player may have been set to 0.0 during a crossfade prep.
+        await _activePlayer.setVolume(1.0);
+        
         _secondaryPlayer.stop(); // Stop old active player
+        await _secondaryPlayer.setVolume(1.0); // Restore its volume too for next use
+        
         _activePlayer.play(); // Play instantly!
         _currentIndex++;
         _hasPlayedCurrentTrack = false;
         _preloadedTrackId = null;
         _isLoading = false;
+        
+        // Re-register listeners on the new active player so completion/position events fire
+        _setupListeners(_activePlayer);
         
         HistoryService().addTrack(nextTrack);
         

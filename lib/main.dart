@@ -5,7 +5,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 
 import 'data/history_service.dart';
 import 'data/settings_service.dart';
-
+import 'data/app_localizations.dart';
 import 'data/api/audio_service.dart';
 
 void main() async {
@@ -87,6 +87,9 @@ class BitChordApp extends StatelessWidget {
               }),
             ),
           ),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: localeForLanguage(settings.appLanguage),
           themeMode: currentThemeMode,
           routerConfig: appRouter,
         );

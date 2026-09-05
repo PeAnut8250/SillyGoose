@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dart_des/dart_des.dart';
 import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../settings_service.dart';
 
 class SaavnStream {
   final String url;
@@ -27,27 +29,42 @@ class JioSaavnService {
     }
   }
 
-  static SaavnStream? _bestStream(String encryptedUrl, bool supports320) {
+  /// Map a quality label → target kbps
+  static int _qualityToKbps(String quality) {
+    switch (quality) {
+      case 'Low':     return 48;
+      case 'Normal':  return 96;
+      case 'High':    return 160;
+      case 'Lossless': return 320;
+      default:        return 320;
+    }
+  }
+
+  static SaavnStream? _bestStream(String encryptedUrl, bool has320, int targetKbps) {
     final decryptedUrl = _decryptUrl(encryptedUrl);
     if (decryptedUrl.isEmpty) return null;
 
     final regex = RegExp(r'_(48|96|160|320)\.(mp4|aac|mp3)$');
     final match = regex.firstMatch(decryptedUrl);
-    
-    if (match == null) {
-      return SaavnStream(decryptedUrl, supports320 ? 320 : null);
+    final extension = match?.group(2) ?? 'mp4';
+
+    // Clamp to what the song actually supports
+    final maxKbps = has320 ? 320 : 160;
+    final clampedTarget = targetKbps.clamp(48, maxKbps);
+
+    // Pick the nearest available tier (48, 96, 160, 320)
+    const tiers = [48, 96, 160, 320];
+    int chosen = tiers.first;
+    for (final tier in tiers) {
+      if (tier <= clampedTarget) chosen = tier;
     }
 
-    final offeredStr = match.group(1);
-    final extension = match.group(2);
-    final offered = offeredStr != null ? int.tryParse(offeredStr) : null;
+    final newUrl = match != null
+        ? decryptedUrl.replaceRange(match.start, match.end, '_$chosen.$extension')
+        : decryptedUrl;
 
-    if (supports320) {
-      final newUrl = decryptedUrl.replaceRange(match.start, match.end, '_320.$extension');
-      return SaavnStream(newUrl, 320);
-    } else {
-      return SaavnStream(decryptedUrl, offered);
-    }
+    print('[JioSaavn Quality] target=${targetKbps}kbps chosen=${chosen}kbps (max=${maxKbps}kbps)');
+    return SaavnStream(newUrl, chosen);
   }
 
   Future<SaavnStream?> resolveTopStream(String title, String artist) async {
@@ -149,7 +166,18 @@ class JioSaavnService {
 
       final has320 = moreInfo['320kbps']?.toString().toLowerCase() == 'true';
       
-      return _bestStream(encryptedUrl, has320);
+      // Determine target quality from settings based on current network
+      final connectivityResult = await Connectivity()
+          .checkConnectivity()
+          .timeout(const Duration(seconds: 2), onTimeout: () => [ConnectivityResult.wifi]);
+      final isWifi = connectivityResult.contains(ConnectivityResult.wifi) ||
+          connectivityResult.contains(ConnectivityResult.ethernet);
+      final qualityLabel = isWifi
+          ? SettingsService().wifiQuality
+          : SettingsService().mobileDataQuality;
+      final targetKbps = _qualityToKbps(qualityLabel);
+      
+      return _bestStream(encryptedUrl, has320, targetKbps);
 
     } catch (e) {
       print('JioSaavn fetch error: $e');
