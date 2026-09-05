@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../components/dynamic_background.dart';
 import '../../data/history_service.dart';
 import '../../data/api/audio_service.dart';
+import '../../data/scroll_service.dart';
 import '../replay/replay_poster_widget.dart';
 import '../components/animated_equalizer.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -29,6 +30,7 @@ class ReplayScreen extends StatefulWidget {
 class _ReplayScreenState extends State<ReplayScreen> {
   String _selectedFilter = 'This year';
   bool _isReady = false;
+  double _scrollOffset = 0.0;
   
   @override
   void initState() {
@@ -74,8 +76,29 @@ class _ReplayScreenState extends State<ReplayScreen> {
               
               return Stack(
                 children: [
-                  SingleChildScrollView(
-                    child: Column(
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (scrollInfo) {
+                      if (scrollInfo.metrics.pixels != _scrollOffset) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _scrollOffset = scrollInfo.metrics.pixels;
+                            });
+                          }
+                        });
+                        ScrollService().setScrollOffset(scrollInfo.metrics.pixels);
+                      }
+                      if (scrollInfo is UserScrollNotification) {
+                        if (scrollInfo.direction == ScrollDirection.reverse) {
+                          ScrollService().setScrolledDown(true);
+                        } else if (scrollInfo.direction == ScrollDirection.forward) {
+                          ScrollService().setScrolledDown(false);
+                        }
+                      }
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 80), // Padding to replace the removed Header
@@ -306,6 +329,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
                   ],
                 ),
               ),
+              ),
               // Fixed Header
               Positioned(
                 top: 16.0,
@@ -314,39 +338,76 @@ class _ReplayScreenState extends State<ReplayScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Back Button Pill
                     ClipRRect(
                       borderRadius: BorderRadius.circular(100),
-                      child: LiquidGlass(
-                        forceOpaque: !SettingsService().liquidGlass,
-                        child: GestureDetector(
-                          onTap: () => context.pop(),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            color: Colors.transparent, // LiquidGlass background
-                            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-                          ),
+                      child: ListenableBuilder(
+                        listenable: SettingsService(),
+                        builder: (context, _) => Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Background
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                child: LiquidGlass(
+                                  forceOpaque: !SettingsService().liquidGlass,
+                                  child: Container(),
+                                ),
+                              ),
+                            ),
+                            // Foreground
+                            GestureDetector(
+                              onTap: () => context.pop(),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                color: Colors.transparent,
+                                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                    
+                    // Profile Pill
                     ClipRRect(
                       borderRadius: BorderRadius.circular(100),
-                      child: LiquidGlass(
-                        forceOpaque: !SettingsService().liquidGlass,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.of(context, rootNavigator: true).push(
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
+                      child: ListenableBuilder(
+                        listenable: SettingsService(),
+                        builder: (context, _) => Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Background
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                child: LiquidGlass(
+                                  forceOpaque: !SettingsService().liquidGlass,
+                                  child: Container(),
+                                ),
                               ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12), // Matching the back button padding
-                            color: Colors.transparent,
-                            child: const Icon(Icons.person, color: Colors.white, size: 24),
-                          ),
+                            ),
+                            // Foreground
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context, rootNavigator: true).push(
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                    transitionDuration: Duration.zero,
+                                    reverseTransitionDuration: Duration.zero,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                color: Colors.transparent,
+                                child: const Icon(Icons.person, color: Colors.white, size: 24),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

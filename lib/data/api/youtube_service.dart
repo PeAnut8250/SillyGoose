@@ -4,13 +4,181 @@ import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../settings_service.dart';
+import '../models/explore_models.dart';
+
 class YoutubeService {
+  static final YoutubeService _instance = YoutubeService._internal();
+  factory YoutubeService() => _instance;
+  YoutubeService._internal();
+
   final YoutubeExplode _yt = YoutubeExplode();
+  final Map<String, List<ExplorePlaylistShelf>> _moodGenreShelfCache = {};
+  
+  // Basic Innertube JSON helpers
+  dynamic _o(dynamic node, String key) => (node is Map) ? node[key] : null;
+  List<dynamic>? _a(dynamic node, String key) => (node is Map && node[key] is List) ? node[key] : null;
+  String? _s(dynamic node, String key) => (node is Map && node[key] is String) ? node[key] : null;
+  String _runs(dynamic node) {
+    if (node == null) return '';
+    final runs = _a(node, 'runs');
+    if (runs == null || runs.isEmpty) return '';
+    return runs.map((r) => _s(r, 'text') ?? '').join('');
+  }
+
+  Future<Map<String, dynamic>> _innertubeRequest(String endpoint, Map<String, dynamic> body) async {
+    final uri = Uri.parse('https://music.youtube.com/youtubei/v1/$endpoint');
+    body['context'] = {
+      'client': {
+        'clientName': 'WEB_REMIX',
+        'clientVersion': '1.20240828.00.00',
+      }
+    };
+    try {
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      print('Innertube request failed: $e');
+    }
+    return {};
+  }
+
+  Future<List<MoodGenreSection>> getMoodsAndGenres() async {
+    final response = await _innertubeRequest('browse', {'browseId': 'FEmusic_moods_and_genres'});
+    final List<MoodGenreSection> sections = [];
+    
+    try {
+      final contents = _a(
+        _o(_o(_o(_a(_o(_o(response, 'contents'), 'singleColumnBrowseResultsRenderer'), 'tabs')?.first, 'tabRenderer'), 'content'), 'sectionListRenderer'),
+        'contents'
+      );
+      
+      if (contents != null) {
+        for (var section in contents) {
+          final grid = _o(section, 'gridRenderer');
+          if (grid == null) continue;
+          
+          final title = _runs(_o(_o(grid, 'header'), 'gridHeaderRenderer')?['title']);
+          final items = <MoodGenreItem>[];
+          
+          final gridItems = _a(grid, 'items');
+          if (gridItems != null) {
+            for (var item in gridItems) {
+              final button = _o(item, 'musicNavigationButtonRenderer');
+              if (button == null) continue;
+              
+              final endpoint = _o(button, 'clickCommand')?['browseEndpoint'] ?? _o(button, 'navigationEndpoint')?['browseEndpoint'];
+              if (endpoint == null) continue;
+              
+              final browseId = _s(endpoint, 'browseId');
+              if (browseId == null) continue;
+              
+              final label = _runs(_o(button, 'buttonText'));
+              if (label.isEmpty) continue;
+              
+              items.add(MoodGenreItem(
+                title: label,
+                browseId: browseId,
+                params: _s(endpoint, 'params') ?? '',
+              ));
+            }
+          }
+          if (title.isNotEmpty && items.isNotEmpty) {
+            sections.add(MoodGenreSection(title: title, items: items));
+          }
+        }
+      }
+    } catch (e) {
+      print('Error parsing moods and genres: $e');
+    }
+    
+    return sections;
+  }
+
+  Future<List<ExplorePlaylistShelf>> getMoodGenrePlaylists(String browseId, String params) async {
+    final key = '$browseId:$params';
+    if (_moodGenreShelfCache.containsKey(key)) {
+      return _moodGenreShelfCache[key]!;
+    }
+
+    final response = await _innertubeRequest('browse', {'browseId': browseId, 'params': params});
+    final List<ExplorePlaylistShelf> shelves = [];
+    
+    void walk(dynamic node) {
+      if (node is Map<String, dynamic>) {
+        final carousel = node['musicCarouselShelfRenderer'];
+        if (carousel != null) {
+          final title = _runs(_o(_o(carousel, 'header'), 'musicCarouselShelfBasicHeaderRenderer')?['title']);
+          if (title.toLowerCase().contains('video')) return; // Skip video charts
+          
+          final items = <ExplorePlaylistItem>[];
+          final contents = _a(carousel, 'contents');
+          if (contents != null) {
+            for (var item in contents) {
+              final twoRow = _o(item, 'musicTwoRowItemRenderer');
+              if (twoRow != null) {
+                final endpoint = _o(twoRow, 'navigationEndpoint')?['browseEndpoint'];
+                final id = endpoint?['browseId'];
+                if (id == null) continue;
+                
+                final itemTitle = _runs(_o(twoRow, 'title'));
+                final subtitle = _runs(_o(twoRow, 'subtitle'));
+                final thumbNodes = _a(_o(_o(twoRow, 'thumbnailRenderer'), 'musicThumbnailRenderer')?['thumbnail'], 'thumbnails');
+                final thumbUrl = (thumbNodes != null && thumbNodes.isNotEmpty) ? thumbNodes.last['url'] : '';
+                
+                items.add(ExplorePlaylistItem(
+                  title: itemTitle,
+                  subtitle: subtitle,
+                  thumbnailUrl: thumbUrl,
+                  browseId: id,
+                ));
+              }
+            }
+          }
+          if (items.isNotEmpty) {
+            shelves.add(ExplorePlaylistShelf(title: title, items: items));
+          }
+        }
+        node.values.forEach(walk);
+      } else if (node is List) {
+        node.forEach(walk);
+      }
+    }
+    
+    try {
+      walk(response);
+    } catch (e) {
+      print('Error parsing mood genre shelves: $e');
+    }
+    if (shelves.isNotEmpty) {
+      _moodGenreShelfCache[key] = shelves;
+    }
+    return shelves;
+  }
+
+  Future<String?> getMoodGenreArtwork(String browseId, String params) async {
+    try {
+      final shelves = await getMoodGenrePlaylists(browseId, params);
+      for (var shelf in shelves) {
+        for (var item in shelf.items) {
+          if (item.thumbnailUrl.isNotEmpty) return item.thumbnailUrl;
+        }
+      }
+    } catch (e) {
+      print('Error getting artwork for $browseId: $e');
+    }
+    return null;
+  }
 
   /// Retrieves search autocomplete suggestions from iTunes API (music only).
   Future<List<String>> getQuerySuggestions(String query) async {
     try {
-      final uri = Uri.parse('https://itunes.apple.com/search?term=\${Uri.encodeComponent(query)}&media=music&limit=7');
+      final uri = Uri.parse('https://itunes.apple.com/search?term=${Uri.encodeComponent(query)}&media=music&limit=7');
       final res = await http.get(uri).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);

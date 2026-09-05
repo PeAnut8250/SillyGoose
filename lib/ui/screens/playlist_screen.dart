@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import '../components/liquid_glass.dart';
 import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
+import '../widgets/floating_search_window.dart';
 
 class PlaylistScreen extends StatefulWidget {
   final Map<String, String> playlistData;
@@ -55,63 +56,29 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: AnimatedOpacity(
-          opacity: _scrollOffset > 300 ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            widget.playlistData['title']!,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
-          ),
-        ),
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _scrollOffset > 300 ? Colors.transparent : Colors.black.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        flexibleSpace: ClipRect(
-          child: Opacity(
-            opacity: (_scrollOffset / 300).clamp(0.0, 1.0),
-            child: ListenableBuilder(
-              listenable: SettingsService(),
-              builder: (context, _) {
-                return LiquidGlass(
-                  forceOpaque: !SettingsService().liquidGlass,
-                  child: Container(),
-                );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        body: Stack(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: (scrollInfo) {
+                if (scrollInfo is UserScrollNotification) {
+                  if (scrollInfo.direction == ScrollDirection.reverse) {
+                    ScrollService().setScrolledDown(true);
+                  } else if (scrollInfo.direction == ScrollDirection.forward) {
+                    ScrollService().setScrolledDown(false);
+                  }
+                }
+                return false;
               },
-            ),
-          ),
-        ),
-      ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (scrollInfo) {
-          if (scrollInfo is UserScrollNotification) {
-            if (scrollInfo.direction == ScrollDirection.reverse) {
-              ScrollService().setScrolledDown(true);
-            } else if (scrollInfo.direction == ScrollDirection.forward) {
-              ScrollService().setScrolledDown(false);
-            }
-          }
-          return false;
-        },
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-          SliverToBoxAdapter(
-            child: _buildHeader(),
-          ),
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                SliverToBoxAdapter(
+                  child: _buildHeader(),
+                ),
           if (_isLoading)
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -245,6 +212,130 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
               child: SizedBox(height: 100), // padding for miniplayer
             ),
         ],
+      ),
+      ),
+      // Custom Fixed Header
+      Positioned(
+        top: MediaQuery.of(context).padding.top + 8,
+        left: 16.0,
+        right: 16.0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Back Button
+            ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: ListenableBuilder(
+                listenable: SettingsService(),
+                builder: (context, _) => Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Background
+                    Positioned.fill(
+                      child: AnimatedOpacity(
+                        opacity: _scrollOffset > 50 ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: LiquidGlass(
+                          forceOpaque: !SettingsService().liquidGlass,
+                          child: Container(),
+                        ),
+                      ),
+                    ),
+                    // Foreground
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        color: Colors.transparent,
+                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Floating Title Pill
+            Expanded(
+              child: AnimatedOpacity(
+                opacity: _scrollOffset > 300 ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: ListenableBuilder(
+                        listenable: SettingsService(),
+                        builder: (context, _) => LiquidGlass(
+                          forceOpaque: !SettingsService().liquidGlass,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            color: Colors.transparent,
+                            child: Text(
+                              widget.playlistData['title']!,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            // Search Pill
+            ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: ListenableBuilder(
+                listenable: SettingsService(),
+                builder: (context, _) => Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Background
+                    Positioned.fill(
+                      child: AnimatedOpacity(
+                        opacity: _scrollOffset > 50 ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: LiquidGlass(
+                          forceOpaque: !SettingsService().liquidGlass,
+                          child: Container(),
+                        ),
+                      ),
+                    ),
+                    // Foreground
+                    GestureDetector(
+                      onTap: () {
+                        showGeneralDialog(
+                          context: context,
+                          barrierColor: Colors.transparent,
+                          transitionDuration: const Duration(milliseconds: 300),
+                          pageBuilder: (context, animation, secondaryAnimation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: FloatingSearchWindow(contextName: widget.playlistData['title']!),
+                            );
+                          },
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        color: Colors.transparent,
+                        child: const Icon(Icons.search, color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      ],
       ),
       ),
     );

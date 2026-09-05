@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/api/audio_service.dart';
+import '../../data/scroll_service.dart';
 import '../player/player_screen.dart';
 import '../../data/settings_service.dart';
 import 'liquid_glass.dart';
@@ -18,12 +19,12 @@ class MiniPlayer extends StatelessWidget {
         background: Container(
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.only(left: 32.0),
-          child: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 36),
+          child: Icon(Icons.skip_previous_rounded, color: Theme.of(context).colorScheme.onSurface, size: 36),
         ),
         secondaryBackground: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 32.0),
-          child: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 36),
+          child: Icon(Icons.skip_next_rounded, color: Theme.of(context).colorScheme.onSurface, size: 36),
         ),
         confirmDismiss: (direction) async {
           if (direction == DismissDirection.endToStart) {
@@ -101,7 +102,7 @@ class MiniPlayer extends StatelessWidget {
                               track['title']!,
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: isInline ? 14 : null,
                               ),
                               maxLines: 1,
@@ -111,7 +112,7 @@ class MiniPlayer extends StatelessWidget {
                               Text(
                                 track['subtitle']!,
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white70,
+                                  color: Theme.of(context).colorScheme.onSurface70,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -135,7 +136,7 @@ class MiniPlayer extends StatelessWidget {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onSurface),
                               ),
                             ),
                           );
@@ -144,7 +145,7 @@ class MiniPlayer extends StatelessWidget {
                         return IconButton(
                           icon: Icon(
                             isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onSurface,
                             size: isInline ? 24 : 32,
                           ),
                           padding: isInline ? EdgeInsets.zero : const EdgeInsets.all(8.0),
@@ -161,8 +162,8 @@ class MiniPlayer extends StatelessWidget {
               );
             },
           ),
-          ),
         ),
-      );
+      ),
+    );
   }
 }

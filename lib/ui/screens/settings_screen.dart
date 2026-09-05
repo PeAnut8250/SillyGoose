@@ -4,6 +4,8 @@ import 'dart:ui';
 import '../../data/settings_service.dart';
 import '../../data/api/audio_service.dart';
 import '../../data/history_service.dart';
+import '../components/liquid_glass.dart';
+import '../components/mini_player.dart';
 import 'sources_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -20,26 +22,46 @@ Color _hexToColor(String hex) {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final ScrollController _scrollController = ScrollController();
+  double _scrollOffset = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      setState(() {
+        _scrollOffset = _scrollController.offset;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: SettingsService(),
+      listenable: Listenable.merge([SettingsService(), AudioService()]),
       builder: (context, _) {
         final settings = SettingsService();
+        final track = AudioService().currentTrack;
         
         return Scaffold(
           backgroundColor: _hexToColor(settings.settingsBgColor),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface, size: 24),
-              onPressed: () => Navigator.pop(context),
-            ),
-            title: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          body: Stack(
             children: [
+              ListView(
+                controller: _scrollController,
+                padding: EdgeInsets.only(
+                  left: 16.0, 
+                  right: 16.0, 
+                  bottom: track != null ? (24.0 + 48.0 + 16.0) : 16.0, // Padding for MiniPlayer
+                  top: MediaQuery.of(context).padding.top + 80 // Padding for Custom Header
+                ),
+                children: [
               _SettingsGroup(
                 children: [
                   _SettingsNavTile(
@@ -118,9 +140,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.palette, color: Colors.white70, size: 22),
+                            Icon(Icons.palette, color: Theme.of(context).colorScheme.onSurface70, size: 22),
                             SizedBox(width: 16),
-                            Text('Theme', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+                            Text('Theme', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500)),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -287,6 +309,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 50),
             ],
+              ),
+              // Custom Fixed Header
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 16.0,
+                right: 16.0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back Button Pill
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: ListenableBuilder(
+                        listenable: SettingsService(),
+                        builder: (context, _) => Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Background
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 200),
+                                child: LiquidGlass(
+                                  forceOpaque: !SettingsService().liquidGlass,
+                                  child: Container(),
+                                ),
+                              ),
+                            ),
+                            // Foreground
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                color: Colors.transparent,
+                                child: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface, size: 24),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    // Floating Title Pill
+                    Expanded(
+                      child: AnimatedOpacity(
+                        opacity: _scrollOffset > 50 ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(100),
+                              child: ListenableBuilder(
+                                listenable: SettingsService(),
+                                builder: (context, _) => LiquidGlass(
+                                  forceOpaque: !SettingsService().liquidGlass,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    color: Colors.transparent,
+                                    child: const Text(
+                                      'Settings',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Invisible placeholder for symmetry
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+              if (track != null)
+                Positioned(
+                  left: 47,
+                  right: 47,
+                  bottom: 24,
+                  height: 42,
+                  child: MiniPlayer(
+                    track: track,
+                    isInline: true,
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -435,11 +549,11 @@ class _SettingsGroup extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withOpacity(0.05),
-            Colors.white.withOpacity(0.01),
+            Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+            Theme.of(context).colorScheme.onSurface.withOpacity(0.01),
           ],
         ),
-        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08), width: 1),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -576,7 +690,7 @@ class _SettingsSliderTile extends StatelessWidget {
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: Colors.redAccent,
                     inactiveTrackColor: Colors.grey.withOpacity(0.3),
-                    thumbColor: Colors.white,
+                    thumbColor: Theme.of(context).colorScheme.onSurface,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                     trackHeight: 4.0,
                     overlayShape: SliderComponentShape.noOverlay,
@@ -639,13 +753,13 @@ class FrostedIcon extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withOpacity(opacity),
-          Colors.white.withOpacity(opacity * 0.2),
+          Theme.of(context).colorScheme.onSurface.withOpacity(opacity),
+          Theme.of(context).colorScheme.onSurface.withOpacity(opacity * 0.2),
         ],
         stops: const [0.0, 1.0],
       ).createShader(bounds),
       blendMode: BlendMode.srcIn,
-      child: Icon(icon, color: Colors.white, size: 22),
+      child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 22),
     );
   }
 }

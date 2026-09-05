@@ -32,12 +32,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
   double _dragDistanceY = 0;
   bool _isPopping = false;
 
+  String? _uiTrackId;
+
   @override
   void initState() {
     super.initState();
+    _uiTrackId = AudioService().currentTrack?['id'];
     _checkVideoTrack();
-    AudioService().addListener(_checkVideoTrack);
+    AudioService().addListener(_onAudioServiceUpdate);
     SettingsService().addListener(_checkVideoTrack);
+  }
+
+  void _onAudioServiceUpdate() {
+    _checkVideoTrack();
+    final newTrackId = AudioService().currentTrack?['id'];
+    if (newTrackId != _uiTrackId) {
+      if (mounted) {
+        setState(() {
+          _uiTrackId = newTrackId;
+        });
+      }
+    }
   }
 
   void _checkVideoTrack() {
@@ -160,7 +175,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    AudioService().removeListener(_checkVideoTrack);
+    AudioService().removeListener(_onAudioServiceUpdate);
     SettingsService().removeListener(_checkVideoTrack);
     _disposeVideo(isDisposing: true);
     _volumeOverlay?.remove();
@@ -233,7 +248,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([AudioService(), SettingsService()]),
+      listenable: SettingsService(),
       builder: (context, _) {
         final track = AudioService().currentTrack;
         if (track == null) return const SizedBox.shrink();

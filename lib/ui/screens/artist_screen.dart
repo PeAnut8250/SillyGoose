@@ -49,6 +49,7 @@ class _ArtistScreenState extends State<ArtistScreen> {
       setState(() {
         _scrollOffset = _scrollController.offset;
       });
+      ScrollService().setScrollOffset(_scrollController.offset);
     });
     _loadData();
   }
@@ -156,56 +157,6 @@ class _ArtistScreenState extends State<ArtistScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: AnimatedOpacity(
-          opacity: _scrollOffset > 300 ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            widget.artistData['title'] ?? 'Artist',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
-          ),
-        ),
-        leading: IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _scrollOffset > 300 ? Colors.transparent : Colors.black.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-            decoration: BoxDecoration(
-              color: _scrollOffset > 300 ? Colors.transparent : Colors.black.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(CupertinoIcons.search, color: Colors.white, size: 24),
-              onPressed: () {
-                showGeneralDialog(
-                  context: context,
-                  barrierColor: Colors.transparent, // Background handled by the widget's own BackdropFilter
-                  transitionDuration: const Duration(milliseconds: 300),
-                  pageBuilder: (context, animation, secondaryAnimation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: FloatingSearchWindow(artistName: _artistData['title']!),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (scrollInfo) {
           if (scrollInfo is UserScrollNotification) {
@@ -235,6 +186,9 @@ class _ArtistScreenState extends State<ArtistScreen> {
               CustomScrollView(
                 controller: _scrollController,
                 slivers: [
+                  SliverToBoxAdapter(
+                    child: _buildHeader(),
+                  ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 24.0, bottom: 8.0),
@@ -443,6 +397,127 @@ class _ArtistScreenState extends State<ArtistScreen> {
                     ],
                   );
                 },
+              ),
+            ),
+            // Custom Fixed Header
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16.0,
+              right: 16.0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Back Button Pill
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: ListenableBuilder(
+                      listenable: SettingsService(),
+                      builder: (context, _) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Background
+                          Positioned.fill(
+                            child: AnimatedOpacity(
+                              opacity: _scrollOffset > 50 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: LiquidGlass(
+                                forceOpaque: !SettingsService().liquidGlass,
+                                child: Container(),
+                              ),
+                            ),
+                          ),
+                          // Foreground
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              color: Colors.transparent,
+                              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Floating Title Pill
+                  Expanded(
+                    child: AnimatedOpacity(
+                      opacity: _scrollOffset > 300 ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(100),
+                            child: ListenableBuilder(
+                              listenable: SettingsService(),
+                              builder: (context, _) => LiquidGlass(
+                                forceOpaque: !SettingsService().liquidGlass,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  color: Colors.transparent,
+                                  child: Text(
+                                    widget.artistData['title'] ?? 'Artist',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Search Pill
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: ListenableBuilder(
+                      listenable: SettingsService(),
+                      builder: (context, _) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Background
+                          Positioned.fill(
+                            child: AnimatedOpacity(
+                              opacity: _scrollOffset > 50 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: LiquidGlass(
+                                forceOpaque: !SettingsService().liquidGlass,
+                                child: Container(),
+                              ),
+                            ),
+                          ),
+                          // Foreground
+                          GestureDetector(
+                            onTap: () {
+                              showGeneralDialog(
+                                context: context,
+                                barrierColor: Colors.transparent,
+                                transitionDuration: const Duration(milliseconds: 300),
+                                pageBuilder: (context, animation, secondaryAnimation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: FloatingSearchWindow(contextName: _artistData['title']!),
+                                  );
+                                },
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              color: Colors.transparent,
+                              child: const Icon(CupertinoIcons.search, color: Colors.white, size: 24),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -20,7 +20,7 @@ class LiquidGlass extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: borderRadius,
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 0.5),
+          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1), width: 0.5),
         ),
         child: child,
       );
@@ -56,15 +56,15 @@ class LiquidGlass extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.white.withOpacity(0.10),
-              Colors.white.withOpacity(0.10),
-              Colors.white.withOpacity(0.10),
-              Colors.white.withOpacity(0.10),
+              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
             ],
             stops: const [0.0, 0.3, 0.7, 1.0],
           ),
           border: Border.all(
-            color: Colors.white.withOpacity(0.10),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
             width: 0.5,
           ),
         ),

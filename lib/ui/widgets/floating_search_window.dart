@@ -6,9 +6,9 @@ import '../../data/api/audio_service.dart';
 import 'song_options_menu.dart';
 
 class FloatingSearchWindow extends StatefulWidget {
-  final String artistName;
+  final String contextName;
 
-  const FloatingSearchWindow({super.key, required this.artistName});
+  const FloatingSearchWindow({super.key, required this.contextName});
 
   @override
   State<FloatingSearchWindow> createState() => _FloatingSearchWindowState();
@@ -49,8 +49,8 @@ class _FloatingSearchWindowState extends State<FloatingSearchWindow> {
     });
 
     try {
-      // Implicitly append the artist name to narrow the search to their songs!
-      final searchQuery = '${widget.artistName} $query';
+      // Implicitly append the context name to narrow the search!
+      final searchQuery = '${widget.contextName} $query';
       final ytService = YoutubeService();
       final results = await ytService.searchSongs(searchQuery);
       
@@ -98,7 +98,7 @@ class _FloatingSearchWindowState extends State<FloatingSearchWindow> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Hero(
-                    tag: 'search_bar_${widget.artistName}',
+                    tag: 'search_bar_${widget.contextName}',
                     child: Material(
                       color: Colors.transparent,
                       child: Container(
@@ -119,7 +119,7 @@ class _FloatingSearchWindowState extends State<FloatingSearchWindow> {
                                 focusNode: _focusNode,
                                 style: const TextStyle(color: Colors.white, fontSize: 16),
                                 decoration: InputDecoration(
-                                  hintText: 'Search ${widget.artistName}\'s songs...',
+                                  hintText: 'Search in ${widget.contextName}...',
                                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                                   border: InputBorder.none,
                                   isDense: true,

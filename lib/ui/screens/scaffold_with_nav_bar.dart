@@ -116,7 +116,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
                                 child: IconButton(
                                   icon: Icon(
                                     Icons.search,
-                                    color: isSearchSelected ? Theme.of(context).colorScheme.primary : Colors.white,
+                                    color: isSearchSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                                     size: isInline ? 20 : 24,
                                   ),
                                   onPressed: () {

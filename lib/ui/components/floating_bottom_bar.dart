@@ -80,8 +80,8 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
               borderRadius: BorderRadius.circular(100),
             ),
               child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onHorizontalDragUpdate: (details) {
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragUpdate: (details) {
                   final pillWidth = MediaQuery.of(context).size.width - 88.0; // 88 = left/right padding + 48px search button + gap
                   final tabWidth = pillWidth / 3;
                   
@@ -125,7 +125,7 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                       opacity: widget.selectedIndex == 3 ? 0.0 : 1.0,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15), // Translucent white works on both dark and colorful backgrounds
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15), // Translucent white works on both dark and colorful backgrounds
                           borderRadius: BorderRadius.circular(100),
                         ),
                       ),
@@ -164,9 +164,9 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
               );
             },
           ),
-              ),
-            ),
-            );
+                  ), // GestureDetector
+                ), // Container
+            ); // LiquidGlass
           },
         ),
       );

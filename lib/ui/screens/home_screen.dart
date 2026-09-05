@@ -23,12 +23,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   double _scrollOffset = 0.0;
+  final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _shelves = [];
   final YoutubeService _ytService = YoutubeService();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      setState(() {
+        _scrollOffset = _scrollController.offset;
+      });
+      ScrollService().setScrollOffset(_scrollController.offset);
+    });
     _loadData();
   }
 
@@ -230,63 +237,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset('assets/goosees.jpg', width: 32, height: 32, fit: BoxFit.cover),
-            ),
-            const SizedBox(width: 12),
-            const Text('Listen Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28)),
-          ],
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context, rootNavigator: true).push(
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                    transitionDuration: Duration.zero,
-                    reverseTransitionDuration: Duration.zero,
-                  ),
-                );
-              },
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.3),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                ),
-                child: const Icon(Icons.person, color: Colors.white70, size: 20),
-              ),
-            ),
-          ),
-        ],
-        flexibleSpace: ClipRect(
-          child: Opacity(
-            opacity: (_scrollOffset / 10).clamp(0.0, 1.0),
-            child: ListenableBuilder(
-              listenable: SettingsService(),
-              builder: (context, _) {
-                return LiquidGlass(
-                  forceOpaque: !SettingsService().liquidGlass,
-                  child: Container(),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-      body: _isLoading 
+      body: Stack(
+        children: [
+          _isLoading 
         ? _buildSkeletonLoader()
         : RefreshIndicator(
             onRefresh: _loadData,
@@ -351,6 +304,108 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
+      ),
+      // Custom Fixed Header
+      Positioned(
+        top: MediaQuery.of(context).padding.top + 8,
+        left: 16.0,
+        right: 16.0,
+        child: SizedBox(
+          height: 44,
+          child: Stack(
+            children: [
+              // Title Pill (Animates to center when scrolling)
+              AnimatedAlign(
+                alignment: _scrollOffset > 10 ? Alignment.center : Alignment.centerLeft,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: ListenableBuilder(
+                    listenable: SettingsService(),
+                    builder: (context, _) => Stack(
+                      children: [
+                        // Background
+                        Positioned.fill(
+                          child: AnimatedOpacity(
+                            opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: LiquidGlass(
+                              forceOpaque: !SettingsService().liquidGlass,
+                              child: Container(),
+                            ),
+                          ),
+                        ),
+                        // Foreground
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          color: Colors.transparent,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.asset('assets/goosees.jpg', width: 28, height: 28, fit: BoxFit.cover),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text('Listen Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Profile Pill (Always on the right)
+              Align(
+                alignment: Alignment.centerRight,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: ListenableBuilder(
+                    listenable: SettingsService(),
+                    builder: (context, _) => Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Background
+                        Positioned.fill(
+                          child: AnimatedOpacity(
+                            opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: LiquidGlass(
+                              forceOpaque: !SettingsService().liquidGlass,
+                              child: Container(),
+                            ),
+                          ),
+                        ),
+                        // Foreground
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context, rootNavigator: true).push(
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                transitionDuration: Duration.zero,
+                                reverseTransitionDuration: Duration.zero,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            color: Colors.transparent,
+                            child: const Icon(Icons.person, color: Colors.white70, size: 24),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      ],
       ),
     );
   }
