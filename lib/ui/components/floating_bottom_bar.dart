@@ -84,6 +84,7 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
             height: barHeight,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
               child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
