@@ -8,6 +8,8 @@ import 'data/settings_service.dart';
 import 'data/app_localizations.dart';
 import 'data/api/audio_service.dart';
 
+import 'data/update_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AudioService.initGlobal();
@@ -20,8 +22,21 @@ void main() async {
   );
 }
 
-class BitChordApp extends StatelessWidget {
+class BitChordApp extends StatefulWidget {
   const BitChordApp({super.key});
+
+  @override
+  State<BitChordApp> createState() => _BitChordAppState();
+}
+
+class _BitChordAppState extends State<BitChordApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.showUpdateDialogIfAvailable(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

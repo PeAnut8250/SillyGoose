@@ -6,6 +6,7 @@ import '../../data/api/audio_service.dart';
 import '../../data/history_service.dart';
 import '../../data/network_service.dart';
 import '../../data/app_localizations.dart';
+import '../../data/update_service.dart';
 import '../components/liquid_glass.dart';
 import '../components/mini_player.dart';
 import 'sources_screen.dart';
@@ -424,7 +425,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-              SizedBox(height: 50),
+                _SettingsHeader('ABOUT & UPDATES'),
+                _SettingsGroup(
+                  children: [
+                    _SettingsNavTile(
+                      icon: Icons.system_update,
+                      title: 'Check for Updates',
+                      subtitle: 'Check GitHub releases for new SillyGoose versions',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Checking for updates...')),
+                        );
+                        UpdateService.checkForUpdate().then((info) {
+                          if (!context.mounted) return;
+                          if (info != null && info.hasUpdate) {
+                            UpdateService.showUpdateDialogIfAvailable(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('SillyGoose is up to date! 🎉')),
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: 50),
             ],
               ),
               // Custom Fixed Header
