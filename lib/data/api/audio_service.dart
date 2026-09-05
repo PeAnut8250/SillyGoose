@@ -34,6 +34,14 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
   AudioPlayer _secondaryPlayer = AudioPlayer();
   Timer? _crossfadeTimer;
   bool _isCrossfading = false;
+
+  // StreamSubscription tracking — prevents duplicate listeners when players are swapped
+  StreamSubscription? _activePlayerStateSub;
+  StreamSubscription? _activePlayerPositionSub;
+  StreamSubscription? _activePlayerDurationSub;
+  StreamSubscription? _secondaryPlayerStateSub;
+  StreamSubscription? _secondaryPlayerPositionSub;
+  StreamSubscription? _secondaryPlayerDurationSub;
   
   AudioPlayer get _player => _activePlayer;
   
@@ -143,79 +151,85 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
 
     _startProxyServer();
 
-    _setupListeners(_activePlayer);
-    _setupListeners(_secondaryPlayer);
+    _setupListeners(_activePlayer, isActive: true);
   }
 
-  void _setupListeners(AudioPlayer p) {
-    p.playerStateStream.listen((state) {
-      if (p != _activePlayer) return;
-      
-      if (state.processingState == ProcessingState.completed && !_isLoading && !_isCrossfading) {
-        _flushAccumulatedTime();
-        if (_hasPlayedCurrentTrack) {
-          if (repeatMode == 2) {
-            p.seek(Duration.zero);
-            p.play();
-            return; // Prevent broadcasting completed
-          } else {
-            skipToNext();
-            return; // Prevent broadcasting completed
-          }
-        } else {
-          p.pause();
-        }
-      }
-      
-      _broadcastState();
-      notifyListeners();
-    });
+  /// Sets up listeners for the active player, cancelling old subscriptions first.
+  /// Pass [isActive=true] for the active player, [isActive=false] for the secondary.
+  void _setupListeners(AudioPlayer p, {bool isActive = true}) {
+    if (isActive) {
+      // Cancel all old active player subscriptions before re-subscribing
+      _activePlayerStateSub?.cancel();
+      _activePlayerPositionSub?.cancel();
+      _activePlayerDurationSub?.cancel();
 
-    p.positionStream.listen((pos) {
-      if (p != _activePlayer) return;
-      
-      if (pos.inSeconds > 0) {
-        if (!_hasPlayedCurrentTrack) {
-          _hasPlayedCurrentTrack = true;
-          if (currentTrack != null) {
-            HistoryService().recordPlayTime(currentTrack!, 0, true);
-          }
-        }
-      }
-
-      final delta = pos.inMilliseconds - _lastPosition.inMilliseconds;
-      if (delta > 0 && delta < 2000) {
-        _accumulatedMs += delta;
-        if (_accumulatedMs >= 5000) {
+      _activePlayerStateSub = p.playerStateStream.listen((state) {
+        if (p != _activePlayer) return;
+        if (state.processingState == ProcessingState.completed && !_isLoading && !_isCrossfading) {
           _flushAccumulatedTime();
+          if (_hasPlayedCurrentTrack) {
+            if (repeatMode == 2) {
+              p.seek(Duration.zero);
+              p.play();
+              return;
+            } else {
+              skipToNext();
+              return;
+            }
+          } else {
+            p.pause();
+          }
         }
-      }
-      _lastPosition = pos;
-      
-      // Crossfade logic
-      final crossfadeSecs = SettingsService().crossfade;
-      if (crossfadeSecs > 0 && !_isCrossfading && p.duration != null) {
-        final remaining = p.duration!.inMilliseconds - pos.inMilliseconds;
-        if (remaining <= crossfadeSecs * 1000 && remaining > 0 && hasNext && repeatMode != 2) {
-          _triggerCrossfade();
-        }
-      }
-      
-      _broadcastState();
-      notifyListeners();
-    });
+        _broadcastState();
+        notifyListeners();
+      });
 
-    p.durationStream.listen((duration) {
-      if (p != _activePlayer) return;
-      
-      if (Platform.isWindows || Platform.isLinux) return;
-      if (duration != null && mediaItem.hasValue) {
-        final currentMediaItem = mediaItem.value;
-        if (currentMediaItem != null) {
-          mediaItem.add(currentMediaItem.copyWith(duration: duration));
+      _activePlayerPositionSub = p.positionStream.listen((pos) {
+        if (p != _activePlayer) return;
+        if (pos.inSeconds > 0) {
+          if (!_hasPlayedCurrentTrack) {
+            _hasPlayedCurrentTrack = true;
+            if (currentTrack != null) {
+              HistoryService().recordPlayTime(currentTrack!, 0, true);
+            }
+          }
         }
-      }
-    });
+        final delta = pos.inMilliseconds - _lastPosition.inMilliseconds;
+        if (delta > 0 && delta < 2000) {
+          _accumulatedMs += delta;
+          if (_accumulatedMs >= 5000) {
+            _flushAccumulatedTime();
+          }
+        }
+        _lastPosition = pos;
+        final crossfadeSecs = SettingsService().crossfade;
+        if (crossfadeSecs > 0 && !_isCrossfading && p.duration != null) {
+          final remaining = p.duration!.inMilliseconds - pos.inMilliseconds;
+          if (remaining <= crossfadeSecs * 1000 && remaining > 0 && hasNext && repeatMode != 2) {
+            _triggerCrossfade();
+          }
+        }
+        _broadcastState();
+        notifyListeners();
+      });
+
+      _activePlayerDurationSub = p.durationStream.listen((duration) {
+        if (p != _activePlayer) return;
+        if (Platform.isWindows || Platform.isLinux) return;
+        if (duration != null && mediaItem.hasValue) {
+          final currentMediaItem = mediaItem.value;
+          if (currentMediaItem != null) {
+            mediaItem.add(currentMediaItem.copyWith(duration: duration));
+          }
+        }
+      });
+    } else {
+      // Secondary player subscriptions (minimal — just for crossfade safety)
+      _secondaryPlayerStateSub?.cancel();
+      _secondaryPlayerPositionSub?.cancel();
+      _secondaryPlayerDurationSub?.cancel();
+      // Secondary player needs no special listeners — crossfade manages it directly
+    }
   }
 
   Future<void> _triggerCrossfade() async {
@@ -313,8 +327,8 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
     HistoryService().addTrack(nextTrack);
     _saveState();
 
-    // Re-register listeners on new active player
-    _setupListeners(_activePlayer);
+    // Re-register listeners on new active player (cancels old subs automatically)
+    _setupListeners(_activePlayer, isActive: true);
 
     if (!Platform.isWindows && !Platform.isLinux) {
       mediaItem.add(asrv.MediaItem(
@@ -863,8 +877,8 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         _preloadedTrackId = null;
         _isLoading = false;
         
-        // Re-register listeners on the new active player so completion/position events fire
-        _setupListeners(_activePlayer);
+        // Re-register listeners on the new active player (cancels old subs automatically)
+        _setupListeners(_activePlayer, isActive: true);
         
         HistoryService().addTrack(nextTrack);
         
@@ -975,7 +989,14 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
 
   @override
   void dispose() {
-    _player.dispose();
+    _activePlayerStateSub?.cancel();
+    _activePlayerPositionSub?.cancel();
+    _activePlayerDurationSub?.cancel();
+    _secondaryPlayerStateSub?.cancel();
+    _secondaryPlayerPositionSub?.cancel();
+    _secondaryPlayerDurationSub?.cancel();
+    _activePlayer.dispose();
+    _secondaryPlayer.dispose();
     super.dispose();
   }
   

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -124,12 +123,13 @@ class _UpdateDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: LiquidGlassContainer(
-        borderRadius: 28,
-        blur: 24,
-        opacity: 0.18,
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: LiquidGlass(
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -281,8 +281,10 @@ class _UpdateDialog extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
+        ), // Column
+      ), // Container
+    ), // LiquidGlass
+  ), // ClipRRect
+  ); // Dialog
   }
 }
