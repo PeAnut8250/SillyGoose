@@ -28,6 +28,9 @@ class UpdateService {
   static const String repoOwner = "PeAnut8250";
   static const String repoName = "SillyGoose";
 
+  /// Shared notifier for UI elements (e.g. badge next to profile icon)
+  static final ValueNotifier<AppUpdateInfo?> updateNotifier = ValueNotifier(null);
+
   /// Checks GitHub releases API for a newer tag than currently installed version.
   static Future<AppUpdateInfo?> checkForUpdate() async {
     try {
@@ -63,7 +66,7 @@ class UpdateService {
 
         bool isNewer = _isVersionNewer(tag, currentVersion);
 
-        return AppUpdateInfo(
+        final updateInfo = AppUpdateInfo(
           latestVersion: tag,
           releaseTitle: title,
           releaseNotes: notes,
@@ -71,6 +74,9 @@ class UpdateService {
           htmlUrl: htmlUrl,
           hasUpdate: isNewer,
         );
+
+        updateNotifier.value = updateInfo;
+        return updateInfo;
       }
     } catch (e) {
       debugPrint("UpdateService error: $e");

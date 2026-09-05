@@ -8,6 +8,7 @@ import '../../data/scroll_service.dart';
 import 'package:flutter/rendering.dart';
 import '../components/liquid_glass.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../data/update_service.dart';
 import 'settings_screen.dart';
 import 'playlist_screen.dart';
 import 'artist_screen.dart';
@@ -421,7 +422,39 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               color: Colors.transparent,
-                              child: Icon(Icons.person, color: dynamicColor, size: 24),
+                              child: ValueListenableBuilder<AppUpdateInfo?>(
+                                valueListenable: UpdateService.updateNotifier,
+                                builder: (context, updateInfo, child) {
+                                  final hasUpdate = updateInfo?.hasUpdate ?? false;
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Icon(Icons.person, color: dynamicColor, size: 24),
+                                      if (hasUpdate)
+                                        Positioned(
+                                          top: -2,
+                                          right: -2,
+                                          child: Container(
+                                            width: 9,
+                                            height: 9,
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.primary,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: Colors.black, width: 1.5),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                                                  blurRadius: 4,
+                                                  spreadRadius: 1,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ],
