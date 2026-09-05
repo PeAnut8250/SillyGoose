@@ -56,7 +56,13 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
+                child: Builder(
+                  builder: (context) {
+                    final isLightMode = Theme.of(context).brightness == Brightness.light;
+                    final activeColor = isLightMode ? const Color(0xFFE91E63) : Theme.of(context).colorScheme.onSurface;
+                    return Icon(icon, color: activeColor, size: 20);
+                  }
+                ),
               ),
             );
           },
@@ -114,14 +120,14 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                 children: [
                   // Selected Tab Background Indicator (Material 3 style)
                   AnimatedPositioned(
-                    duration: _dragPosition != null ? Duration.zero : const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    left: indicatorPosition + (tabWidth - 76) / 2, // Center the 76px pill horizontally
+                    duration: _dragPosition != null ? Duration.zero : const Duration(milliseconds: 200),
+                    curve: Curves.fastOutSlowIn,
+                    left: indicatorPosition + (tabWidth - 96) / 2, // Center the 96px pill horizontally
                     top: 4, 
                     bottom: 4,
-                    width: 76,
+                    width: 96,
                     child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
+                      duration: const Duration(milliseconds: 150),
                       opacity: widget.selectedIndex == 3 ? 0.0 : 1.0,
                       child: Container(
                         decoration: BoxDecoration(
@@ -174,14 +180,17 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
 
   Widget _buildTab(BuildContext context, int index, IconData unselectedIcon, IconData selectedIcon, String label) {
     final isSelected = widget.selectedIndex == index;
-    final color = isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant;
+    final isLightMode = Theme.of(context).brightness == Brightness.light;
+    
+    final activeColor = isLightMode ? const Color(0xFFE91E63) : Theme.of(context).colorScheme.onSurface;
+    final color = isSelected ? activeColor : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onTabSelected(index),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 150),
           child: ClipRect(
             child: OverflowBox(
               maxHeight: 100,
@@ -191,15 +200,15 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
             children: [
               AnimatedScale(
                 scale: isSelected ? 1.08 : 1.0,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutBack,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.fastOutSlowIn,
                 child: Icon(
                   isSelected ? selectedIcon : unselectedIcon,
                   color: color,
                   size: 18, // Reduced from 26 to better fit the nav bar
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(

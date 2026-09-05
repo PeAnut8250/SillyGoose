@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_app/ui/screens/replay_screen.dart';
+import '../components/liquid_glass.dart';
 import '../../data/history_service.dart';
 import '../../data/scroll_service.dart';
 import 'settings_screen.dart';
+import 'playlist_screen.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -36,14 +37,30 @@ class LibraryScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.asset('assets/goosees.jpg', width: 32, height: 32, fit: BoxFit.cover),
+                    Builder(
+                      builder: (context) {
+                        Widget logo = Image.asset('assets/goosees.jpg', width: 32, height: 32, fit: BoxFit.cover);
+                        if (Theme.of(context).brightness == Brightness.light) {
+                          logo = ColorFiltered(
+                            colorFilter: const ColorFilter.matrix([
+                              -1, 0, 0, 0, 255,
+                              0, -1, 0, 0, 255,
+                              0, 0, -1, 0, 255,
+                              0, 0, 0, 1, 0,
+                            ]),
+                            child: logo,
+                          );
+                        }
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: logo,
+                        );
+                      }
                     ),
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.history, color: Colors.white),
+                          icon: Icon(Icons.history, color: Theme.of(context).colorScheme.onSurface),
                           onPressed: () {},
                         ),
                         const SizedBox(width: 8),
@@ -56,10 +73,10 @@ class LibraryScreen extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.person, color: Colors.white, size: 24),
+                            child: Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface, size: 24),
                           ),
                         ),
                       ],
@@ -67,7 +84,7 @@ class LibraryScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('Library', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                Text('Library', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
                 
                 // Your Replay Card
@@ -115,7 +132,7 @@ class LibraryScreen extends StatelessWidget {
                 ),
                 
                 const SizedBox(height: 32),
-                const Text('On Device', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text('On Device', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 
                 // On Device Grid
@@ -143,8 +160,74 @@ class LibraryScreen extends StatelessWidget {
                   ],
                 ),
                 
-                const SizedBox(height: 64),
+                // Playlists Section
+                ListenableBuilder(
+                  listenable: HistoryService(),
+                  builder: (context, _) {
+                    final likedSongsCount = HistoryService().likedSongs.length;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 32),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Playlists', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold)),
+                            IconButton(
+                              icon: const Icon(Icons.add),
+                              color: Theme.of(context).colorScheme.onSurface,
+                              onPressed: () {
+                                _showCreatePlaylistDialog(context);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Liked Songs Tile
+                        _buildPlaylistTile(
+                          context: context,
+                          title: 'Liked Songs',
+                          subtitle: '$likedSongsCount songs',
+                          icon: Icons.favorite,
+                          playlistId: 'LM',
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF5E134C), Color(0xFFF22744)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          onDelete: null, // Cannot delete Liked Songs
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Custom Playlists
+                        ...HistoryService().playlists.map((playlist) {
+                          final tracksCount = (playlist['tracks'] as List).length;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildPlaylistTile(
+                              context: context,
+                              title: playlist['title'],
+                              subtitle: '$tracksCount songs',
+                              icon: Icons.queue_music,
+                              playlistId: playlist['id'],
+                              gradient: LinearGradient(
+                                colors: [Theme.of(context).colorScheme.onSurface.withOpacity(0.1), Theme.of(context).colorScheme.onSurface.withOpacity(0.2)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              onDelete: () {
+                                _showDeletePlaylistDialog(context, playlist['id'], playlist['title']);
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  }
+                ),
                 
+                const SizedBox(height: 64),
                 // Sign in section
                 Center(
                   child: Column(
@@ -152,7 +235,7 @@ class LibraryScreen extends StatelessWidget {
                       Text(
                         'Sign in to your Google account to see your YouTube Music liked songs, playlists and history.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
@@ -198,10 +281,241 @@ class LibraryScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+        Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 12)),
       ],
+    );
+  }
+
+  void _showCreatePlaylistDialog(BuildContext context) {
+    final TextEditingController controller = TextEditingController();
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: LiquidGlass(
+            forceOpaque: false,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Create Playlist', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'My Awesome Mix',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.05),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (controller.text.trim().isNotEmpty) {
+                        HistoryService().createPlaylist(controller.text.trim());
+                      }
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Create', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeletePlaylistDialog(BuildContext context, String id, String title) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: LiquidGlass(
+            forceOpaque: false,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Delete Playlist', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(
+                'Are you sure you want to delete "$title"? This action cannot be undone.',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Cancel', style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      HistoryService().deletePlaylist(id);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.withOpacity(0.2),
+                      foregroundColor: Colors.redAccent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistTile({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Gradient gradient,
+    required String playlistId,
+    VoidCallback? onDelete,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(context,
+          MaterialPageRoute(
+            builder: (context) => PlaylistScreen(
+              playlistData: {
+                'id': playlistId,
+                'title': title,
+                'imageUrl': '',
+                'subtitle': subtitle,
+              },
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: gradient,
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+                ],
+              ),
+            ),
+            if (onDelete != null)
+              IconButton(
+                icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    useRootNavigator: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      ),
+                      child: SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 16),
+                            Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 16),
+                            ListTile(
+                              leading: const Icon(Icons.delete_outline, color: Colors.red),
+                              title: const Text('Delete Playlist', style: TextStyle(color: Colors.red)),
+                              onTap: () {
+                                Navigator.pop(context);
+                                onDelete();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

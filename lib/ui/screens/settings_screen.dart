@@ -48,10 +48,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, _) {
         final settings = SettingsService();
         final track = AudioService().currentTrack;
+        final bgColor = _hexToColor(settings.settingsBgColor);
         
-        return Scaffold(
-          backgroundColor: _hexToColor(settings.settingsBgColor),
-          body: Stack(
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            scaffoldBackgroundColor: bgColor,
+            colorScheme: const ColorScheme.dark().copyWith(
+              surface: bgColor,
+              onSurface: Colors.white,
+            ),
+          ),
+          child: Builder(
+            builder: (context) {
+              return Scaffold(
+                backgroundColor: bgColor,
+                body: Stack(
             children: [
               ListView(
                 controller: _scrollController,
@@ -134,18 +145,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsGroup(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.palette, color: Theme.of(context).colorScheme.onSurface70, size: 22),
+                            Icon(Icons.palette, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), size: 22),
                             SizedBox(width: 16),
                             Text('Theme', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w500)),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -307,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-              const SizedBox(height: 50),
+              SizedBox(height: 50),
             ],
               ),
               // Custom Fixed Header
@@ -341,7 +352,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
                               child: Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: EdgeInsets.all(12),
                                 color: Colors.transparent,
                                 child: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface, size: 24),
                               ),
@@ -357,7 +368,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         opacity: _scrollOffset > 50 ? 1.0 : 0.0,
                         duration: const Duration(milliseconds: 200),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
                           child: Align(
                             alignment: Alignment.center,
                             child: ClipRRect(
@@ -367,9 +378,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 builder: (context, _) => LiquidGlass(
                                   forceOpaque: !SettingsService().liquidGlass,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                     color: Colors.transparent,
-                                    child: const Text(
+                                    child: Text(
                                       'Settings',
                                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
                                       maxLines: 1,
@@ -385,7 +396,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     
                     // Invisible placeholder for symmetry
-                    const SizedBox(width: 48),
+                    SizedBox(width: 48),
                   ],
                 ),
               ),
@@ -403,6 +414,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         );
+            },
+          ),
+        );
       },
     );
   }
@@ -416,7 +430,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Material(
             color: Colors.transparent,
             child: Container(
-          margin: const EdgeInsets.all(16),
+          margin: EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -430,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: EdgeInsets.symmetric(vertical: 16),
                           child: Text(
                             title,
                             style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.54), fontSize: 13, fontWeight: FontWeight.bold),
@@ -451,7 +465,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                                 child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: EdgeInsets.symmetric(vertical: 16),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -464,8 +478,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         ),
                                       ),
                                       if (isSelected) ...[
-                                        const SizedBox(width: 8),
-                                        const Icon(Icons.check, color: Colors.redAccent, size: 20),
+                                        SizedBox(width: 8),
+                                        Icon(Icons.check, color: Colors.redAccent, size: 20),
                                       ]
                                     ],
                                   ),
@@ -481,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
@@ -490,10 +504,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () => Navigator.pop(context),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16),
                       color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                       alignment: Alignment.center,
-                      child: const Text(
+                      child: Text(
                         'Cancel',
                         style: TextStyle(
                           color: Colors.redAccent,
@@ -505,7 +519,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
             ],
           ),
         ),
@@ -523,7 +537,7 @@ class _SettingsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16.0, top: 24.0, bottom: 8.0),
+      padding: EdgeInsets.only(left: 16.0, top: 24.0, bottom: 8.0),
       child: Text(
         title,
         style: TextStyle(
@@ -632,7 +646,7 @@ class _SettingsNavTile extends StatelessWidget {
         children: [
           if (valueText != null) ...[
             Text(valueText!, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 14)),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
           ],
           Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.54), size: 20),
         ],
@@ -664,15 +678,15 @@ class _SettingsSliderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 4.0),
+            padding: EdgeInsets.only(top: 4.0),
             child: FrostedIcon(icon),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -684,7 +698,7 @@ class _SettingsSliderTile extends StatelessWidget {
                     Text(format(value), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 14)),
                   ],
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.54), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
@@ -723,7 +737,7 @@ class _ThemeButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected ? Colors.redAccent : Colors.grey.withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),

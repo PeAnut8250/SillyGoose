@@ -54,7 +54,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
               listenable: Listenable.merge([AudioService(), ScrollService()]),
               builder: (context, _) {
                 final track = AudioService().currentTrack;
-                if (track == null) return const SizedBox.shrink();
+                if (track == null) return SizedBox.shrink();
 
                 final isInline = ScrollService().isScrolledDown;
 
@@ -104,19 +104,22 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
                           listenable: SettingsService(),
                           builder: (context, _) {
                             final isSearchSelected = widget.navigationShell.currentIndex == 3;
+                            final isLightMode = Theme.of(context).brightness == Brightness.light;
+                            final activeColor = isLightMode ? const Color(0xFFE91E63) : Theme.of(context).colorScheme.onSurface;
+                            
                             return LiquidGlass(
                               forceOpaque: !SettingsService().liquidGlass,
                               borderRadius: BorderRadius.circular(100),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 decoration: BoxDecoration(
-                                  color: isSearchSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+                                  color: isSearchSelected ? activeColor.withOpacity(0.15) : Colors.transparent,
                                   borderRadius: BorderRadius.circular(100),
                                 ),
                                 child: IconButton(
                                   icon: Icon(
                                     Icons.search,
-                                    color: isSearchSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+                                    color: isSearchSelected ? activeColor : Theme.of(context).colorScheme.onSurface,
                                     size: isInline ? 20 : 24,
                                   ),
                                   onPressed: () {
@@ -140,7 +143,7 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
         listenable: AudioService(),
         builder: (context, _) {
           // If a track is playing, the FloatingBottomBar is part of the Stack above
-          if (AudioService().currentTrack != null) return const SizedBox.shrink();
+          if (AudioService().currentTrack != null) return SizedBox.shrink();
           
           return FloatingBottomBar(
             selectedIndex: widget.navigationShell.currentIndex,

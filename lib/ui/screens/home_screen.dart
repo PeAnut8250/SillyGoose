@@ -323,37 +323,59 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(100),
                   child: ListenableBuilder(
                     listenable: SettingsService(),
-                    builder: (context, _) => Stack(
-                      children: [
-                        // Background
-                        Positioned.fill(
-                          child: AnimatedOpacity(
-                            opacity: _scrollOffset > 10 ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: LiquidGlass(
-                              forceOpaque: !SettingsService().liquidGlass,
-                              child: Container(),
+                    builder: (context, _) {
+                      final isLightMode = Theme.of(context).brightness == Brightness.light;
+                      
+                      final dynamicColor = isLightMode 
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Colors.white;
+
+                      Widget logo = Image.asset('assets/goosees.jpg', width: 28, height: 28, fit: BoxFit.cover);
+                      if (isLightMode) {
+                        // Always invert logo to black in light mode
+                        logo = ColorFiltered(
+                          colorFilter: const ColorFilter.matrix([
+                            -1, 0, 0, 0, 255,
+                            0, -1, 0, 0, 255,
+                            0, 0, -1, 0, 255,
+                            0, 0, 0, 1, 0,
+                          ]),
+                          child: logo,
+                        );
+                      }
+
+                      return Stack(
+                        children: [
+                          // Background
+                          Positioned.fill(
+                            child: AnimatedOpacity(
+                              opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: LiquidGlass(
+                                forceOpaque: !SettingsService().liquidGlass,
+                                child: Container(),
+                              ),
                             ),
                           ),
-                        ),
-                        // Foreground
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          color: Colors.transparent,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.asset('assets/goosees.jpg', width: 28, height: 28, fit: BoxFit.cover),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text('Listen Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-                            ],
+                          // Foreground
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            color: Colors.transparent,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: logo,
+                                ),
+                                const SizedBox(width: 12),
+                                Text('Listen Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: dynamicColor)),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -365,39 +387,46 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(100),
                   child: ListenableBuilder(
                     listenable: SettingsService(),
-                    builder: (context, _) => Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Background
-                        Positioned.fill(
-                          child: AnimatedOpacity(
-                            opacity: _scrollOffset > 10 ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: LiquidGlass(
-                              forceOpaque: !SettingsService().liquidGlass,
-                              child: Container(),
+                    builder: (context, _) {
+                      final isLightMode = Theme.of(context).brightness == Brightness.light;
+                      final dynamicColor = isLightMode 
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Colors.white70;
+
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Background (visible when scrolled)
+                          Positioned.fill(
+                            child: AnimatedOpacity(
+                              opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: LiquidGlass(
+                                forceOpaque: !SettingsService().liquidGlass,
+                                child: Container(),
+                              ),
                             ),
                           ),
-                        ),
-                        // Foreground
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.of(context, rootNavigator: true).push(
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                                transitionDuration: Duration.zero,
-                                reverseTransitionDuration: Duration.zero,
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            color: Colors.transparent,
-                            child: const Icon(Icons.person, color: Colors.white70, size: 24),
+                          // Foreground
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context, rootNavigator: true).push(
+                                PageRouteBuilder(
+                                  pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                  transitionDuration: Duration.zero,
+                                  reverseTransitionDuration: Duration.zero,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              color: Colors.transparent,
+                              child: Icon(Icons.person, color: dynamicColor, size: 24),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    }
                   ),
                 ),
               ),

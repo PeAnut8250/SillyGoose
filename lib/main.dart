@@ -61,9 +61,10 @@ class BitChordApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(
               seedColor: Colors.black,
               brightness: Brightness.light,
+              surface: const Color(0xFFD6CFCB),
             ),
             useMaterial3: true,
-            scaffoldBackgroundColor: Colors.white,
+            scaffoldBackgroundColor: const Color(0xFFD6CFCB),
           ),
           darkTheme: ThemeData(
             colorScheme: darkColorScheme,

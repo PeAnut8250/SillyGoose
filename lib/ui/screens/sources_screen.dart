@@ -19,8 +19,19 @@ class _SourcesScreenState extends State<SourcesScreen> {
       listenable: SettingsService(),
       builder: (context, _) {
         final settings = SettingsService();
-        return Scaffold(
-          backgroundColor: _hexToColor(settings.settingsBgColor),
+        final bgColor = _hexToColor(settings.settingsBgColor);
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            scaffoldBackgroundColor: bgColor,
+            colorScheme: const ColorScheme.dark().copyWith(
+              surface: bgColor,
+              onSurface: Colors.white,
+            ),
+          ),
+          child: Builder(
+            builder: (context) {
+              return Scaffold(
+            backgroundColor: bgColor,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -136,6 +147,9 @@ class _SourcesScreenState extends State<SourcesScreen> {
               ),
               const SizedBox(height: 100),
             ],
+          ),
+        );
+            },
           ),
         );
       },

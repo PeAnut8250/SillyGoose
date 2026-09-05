@@ -27,7 +27,7 @@ class LiquidGlass extends StatelessWidget {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tintColor = isDark ? const Color(0xFF121212) : const Color(0xFFFAFAFA);
+    final tintColor = isDark ? Color(0xFF121212) : Color(0xFFE0E0E0);
 
     // To make it look like "liquid glass" where colors adapt to the background,
     // we must massively boost saturation and remove the dull gray tint.
@@ -64,7 +64,7 @@ class LiquidGlass extends StatelessWidget {
             stops: const [0.0, 0.3, 0.7, 1.0],
           ),
           border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.25),
             width: 0.5,
           ),
         ),

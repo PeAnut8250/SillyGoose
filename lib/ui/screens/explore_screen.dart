@@ -90,7 +90,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   child: SizedBox(height: MediaQuery.of(context).padding.top + 80),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
                   sliver: SliverToBoxAdapter(
                     child: Opacity(
                       opacity: (1 - (_scrollOffset / 50)).clamp(0.0, 1.0),
@@ -105,7 +105,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                 ),
                 if (_isLoading)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
                       child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.onSurface)),
@@ -117,15 +117,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       (context, index) {
                         final section = _sections![index];
                         return Padding(
-                          padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 24.0),
+                          padding: EdgeInsets.only(left: 16.0, right: 16.0, bottom: 24.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 12.0),
+                                padding: EdgeInsets.only(bottom: 12.0),
                                 child: Text(
                                   section.title,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -145,8 +145,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 itemBuilder: (context, i) {
                                   final item = section.items[i];
                                   final colors = [
-                                    Colors.purple, Colors.blue, Colors.teal, 
-                                    Colors.orange, Colors.red, Colors.pink, Colors.deepPurple
+                                    const Color(0xFFB39CA3), // Muted mauve
+                                    const Color(0xFF95A6B5), // Muted steel blue
+                                    const Color(0xFF94B0A3), // Muted sage
+                                    const Color(0xFFCCA992), // Muted sand
+                                    const Color(0xFFC49393), // Muted rose
+                                    const Color(0xFFB399A8), // Muted plum
+                                    const Color(0xFF9B9AB5), // Muted lavender
                                   ];
                                   final color = colors[item.title.hashCode % colors.length];
                                   
@@ -193,7 +198,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                               right: 32,
                                               child: Text(
                                                 item.title,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   color: Theme.of(context).colorScheme.onSurface,
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -264,29 +269,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.asset(
-                                      'assets/goosees.jpg', 
-                                      width: _scrollOffset > 50 ? 28 : 24, 
-                                      height: _scrollOffset > 50 ? 28 : 24, 
-                                      fit: BoxFit.cover
-                                    ),
+                                  Builder(
+                                    builder: (context) {
+                                      Widget logo = Image.asset(
+                                        'assets/goosees.jpg', 
+                                        width: _scrollOffset > 50 ? 28 : 24, 
+                                        height: _scrollOffset > 50 ? 28 : 24, 
+                                        fit: BoxFit.cover
+                                      );
+                                      if (Theme.of(context).brightness == Brightness.light) {
+                                        logo = ColorFiltered(
+                                          colorFilter: const ColorFilter.matrix([
+                                            -1, 0, 0, 0, 255,
+                                            0, -1, 0, 0, 255,
+                                            0, 0, -1, 0, 255,
+                                            0, 0, 0, 1, 0,
+                                          ]),
+                                          child: logo,
+                                        );
+                                      }
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: logo,
+                                      );
+                                    },
                                   ),
                                   AnimatedSize(
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.easeInOut,
                                     child: _scrollOffset > 50 
                                       ? Padding(
-                                          padding: const EdgeInsets.only(left: 12.0),
-                                          child: const Text(
+                                          padding: EdgeInsets.only(left: 12.0),
+                                          child: Text(
                                             'Explore',
                                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).colorScheme.onSurface),
                                             maxLines: 1,
                                             overflow: TextOverflow.visible,
                                           ),
                                         )
-                                      : const SizedBox(width: 0, height: 28),
+                                      : SizedBox(width: 0, height: 28),
                                   ),
                                 ],
                               ),
@@ -302,41 +323,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     alignment: Alignment.centerRight,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(100),
-                      child: ListenableBuilder(
-                        listenable: SettingsService(),
-                        builder: (context, _) => Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Background
-                            Positioned.fill(
-                              child: AnimatedOpacity(
-                                opacity: _scrollOffset > 10 ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 200),
-                                child: LiquidGlass(
-                                  forceOpaque: !SettingsService().liquidGlass,
-                                  child: Container(),
+                      child: Builder(
+                        builder: (context) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Background (visible when scrolled)
+                              Positioned.fill(
+                                child: AnimatedOpacity(
+                                  opacity: _scrollOffset > 10 ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: ListenableBuilder(
+                                    listenable: SettingsService(),
+                                    builder: (context, _) => LiquidGlass(
+                                      forceOpaque: !SettingsService().liquidGlass,
+                                      child: Container(),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            // Foreground
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.of(context, rootNavigator: true).push(
-                                  PageRouteBuilder(
-                                    pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                                    transitionDuration: Duration.zero,
-                                    reverseTransitionDuration: Duration.zero,
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                color: Colors.transparent,
-                                child: Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface70, size: 24),
+                              // Foreground
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context, rootNavigator: true).push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  color: Colors.transparent,
+                                  child: Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface, size: 24),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          );
+                        }
                       ),
                     ),
                   ),

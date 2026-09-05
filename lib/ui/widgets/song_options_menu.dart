@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../data/api/audio_service.dart';
 import '../../data/api/youtube_service.dart';
+import '../../data/history_service.dart';
 import '../screens/artist_screen.dart';
 
 void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
@@ -97,6 +98,22 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                 const SizedBox(height: 8),
                 
                 // Menu Items
+                Builder(
+                  builder: (context) {
+                    final isLiked = HistoryService().isLiked(track['id'] ?? '');
+                    return _buildMenuItem(
+                      context, 
+                      isLiked ? Icons.remove_circle_outline_rounded : Icons.favorite_border_rounded, 
+                      isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs', 
+                      () {
+                        Navigator.pop(context);
+                        HistoryService().toggleLike(track);
+                        final action = isLiked ? 'Removed from' : 'Added to';
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$action Liked Songs')));
+                      }
+                    );
+                  }
+                ),
                 _buildMenuItem(context, Icons.download_rounded, 'Download', () {
                   Navigator.pop(context);
                 }),
@@ -110,6 +127,11 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                   AudioService().addTrackToQueue(track);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to queue: ${track['title']}')));
                 }),
+                if (HistoryService().playlists.isNotEmpty)
+                  _buildMenuItem(context, Icons.playlist_add_rounded, 'Add to playlist', () {
+                    Navigator.pop(context);
+                    _showAddToPlaylistModal(parentContext, track);
+                  }),
                 _buildMenuItem(context, Icons.album_rounded, 'Open album', () {
                   Navigator.pop(context);
                 }),
@@ -165,5 +187,53 @@ Widget _buildMenuItem(BuildContext context, IconData icon, String title, VoidCal
         ],
       ),
     ),
+  );
+}
+
+void _showAddToPlaylistModal(BuildContext context, Map<String, String> track) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    useRootNavigator: true,
+    builder: (context) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 16),
+              Text('Add to Playlist', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                flex: 0,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: HistoryService().playlists.length,
+                  itemBuilder: (context, index) {
+                    final playlist = HistoryService().playlists[index];
+                    return ListTile(
+                      leading: const Icon(Icons.queue_music_rounded),
+                      title: Text(playlist['title']),
+                      onTap: () {
+                        Navigator.pop(context);
+                        HistoryService().addTrackToPlaylist(playlist['id'], track);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to ${playlist['title']}')));
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      );
+    },
   );
 }

@@ -35,9 +35,6 @@ class _ReplayScreenState extends State<ReplayScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) setState(() => _isReady = true);
-    });
   }
   
   @override
@@ -61,10 +58,6 @@ class _ReplayScreenState extends State<ReplayScreen> {
               } else if (_selectedFilter == 'This year') {
                 bucketKey = '${now.year}';
                 subtitle = '${now.year}';
-              }
-
-              if (!_isReady) {
-                return const Center(child: CircularProgressIndicator(color: Colors.white));
               }
 
               final topSongs = hs.getTopSongs(bucketKey: bucketKey);
@@ -109,8 +102,8 @@ class _ReplayScreenState extends State<ReplayScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Replay', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-                          Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                          Text('Replay', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 36, fontWeight: FontWeight.bold)),
+                          Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 16)),
                         ],
                       ),
                     ),
@@ -124,7 +117,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(24),
                           ),
                           child: Row(
@@ -211,15 +204,15 @@ class _ReplayScreenState extends State<ReplayScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.play_arrow, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text('Play your Replay', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              Icon(Icons.play_arrow, color: Theme.of(context).colorScheme.onSurface),
+                              const SizedBox(width: 8),
+                              Text('Play your Replay', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -292,9 +285,9 @@ class _ReplayScreenState extends State<ReplayScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('You listen most around 2 am.', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                          Text('You listen most around 2 am.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 13)),
                           const SizedBox(height: 8),
-                          Text('Your biggest day was ${DateTime.now().day} — ${totalMinutes} min of it.', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                          Text('Your biggest day was ${DateTime.now().day} — ${totalMinutes} min of it.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 13)),
                         ],
                       ),
                     ),
@@ -309,17 +302,17 @@ class _ReplayScreenState extends State<ReplayScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.ios_share, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text('Share my Replay', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                              Spacer(),
-                              Icon(Icons.chevron_right, color: Colors.white),
+                              Icon(Icons.ios_share, color: Theme.of(context).colorScheme.onSurface),
+                              const SizedBox(width: 8),
+                              Text('Share my Replay', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
+                              const Spacer(),
+                              Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface),
                             ],
                           ),
                         ),
@@ -363,7 +356,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 color: Colors.transparent,
-                                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                                child: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface, size: 24),
                               ),
                             ),
                           ],
@@ -404,7 +397,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 color: Colors.transparent,
-                                child: const Icon(Icons.person, color: Colors.white, size: 24),
+                                child: Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface, size: 24),
                               ),
                             ),
                           ],
@@ -425,18 +418,20 @@ class _ReplayScreenState extends State<ReplayScreen> {
 
   Widget _buildFilterChip(String label) {
     final isSelected = _selectedFilter == label;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final surface = Theme.of(context).colorScheme.surface;
     return GestureDetector(
       onTap: () => setState(() => _selectedFilter = label),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: isSelected ? onSurface : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.black : Colors.white,
+            color: isSelected ? surface : onSurface,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -502,7 +497,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 24.0, bottom: 16.0),
-      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+      child: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -529,9 +524,9 @@ class _ReplayScreenState extends State<ReplayScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -565,17 +560,17 @@ class _ReplayScreenState extends State<ReplayScreen> {
             ),
             clipBehavior: Clip.antiAlias,
             child: (imageUrl != null && imageUrl.isNotEmpty) 
-              ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.person, color: Colors.white))
-              : const Icon(Icons.person, color: Colors.white),
+              ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface))
+              : Icon(Icons.person, color: Theme.of(context).colorScheme.onSurface),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(min, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                Text(min, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 12)),
               ],
             ),
           ),
@@ -609,9 +604,9 @@ class _ReplayScreenState extends State<ReplayScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                Text(name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(min, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+                Text(min, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 12)),
               ],
             ),
           ),
@@ -624,14 +619,14 @@ class _ReplayScreenState extends State<ReplayScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Text(numStr, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(numStr, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+          Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 12)),
         ],
       ),
     );

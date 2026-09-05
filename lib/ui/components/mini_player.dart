@@ -18,12 +18,12 @@ class MiniPlayer extends StatelessWidget {
         key: ValueKey(track['id']),
         background: Container(
           alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.only(left: 32.0),
+          padding: EdgeInsets.only(left: 32.0),
           child: Icon(Icons.skip_previous_rounded, color: Theme.of(context).colorScheme.onSurface, size: 36),
         ),
         secondaryBackground: Container(
           alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 32.0),
+          padding: EdgeInsets.only(right: 32.0),
           child: Icon(Icons.skip_next_rounded, color: Theme.of(context).colorScheme.onSurface, size: 36),
         ),
         confirmDismiss: (direction) async {
@@ -69,12 +69,12 @@ class MiniPlayer extends StatelessWidget {
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutBack,
                   height: isInline ? 42 : 64,
-                  decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(100),
-              ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(100),
+                ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(100),
                       child: AnimatedContainer(
@@ -88,7 +88,7 @@ class MiniPlayer extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: ClipRect(
                         child: OverflowBox(
@@ -112,7 +112,7 @@ class MiniPlayer extends StatelessWidget {
                               Text(
                                 track['subtitle']!,
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface70,
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -129,7 +129,7 @@ class MiniPlayer extends StatelessWidget {
                         final isLoading = AudioService().isLoading;
                         
                         if (isLoading) {
-                          return const Padding(
+                          return Padding(
                             padding: EdgeInsets.all(12.0),
                             child: SizedBox(
                               width: 24,
@@ -148,14 +148,14 @@ class MiniPlayer extends StatelessWidget {
                             color: Theme.of(context).colorScheme.onSurface,
                             size: isInline ? 24 : 32,
                           ),
-                          padding: isInline ? EdgeInsets.zero : const EdgeInsets.all(8.0),
+                          padding: isInline ? EdgeInsets.zero : EdgeInsets.all(8.0),
                           onPressed: () {
                             AudioService().togglePlayPause();
                           },
                         );
                       },
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                   ],
                 ),
               ),

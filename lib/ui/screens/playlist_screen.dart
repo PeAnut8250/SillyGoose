@@ -9,6 +9,7 @@ import '../components/liquid_glass.dart';
 import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
 import '../widgets/floating_search_window.dart';
+import '../../data/history_service.dart';
 
 class PlaylistScreen extends StatefulWidget {
   final Map<String, String> playlistData;
@@ -44,6 +45,25 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   }
 
   Future<void> _loadTracks() async {
+    final id = widget.playlistData['id'] ?? '';
+    
+    if (id == 'LM') {
+      setState(() {
+        _tracks = HistoryService().likedSongs;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (id.startsWith('custom_')) {
+      final customPlaylist = HistoryService().playlists.firstWhere((p) => p['id'] == id, orElse: () => <String, dynamic>{});
+      setState(() {
+        _tracks = (customPlaylist['tracks'] as List?)?.map((t) => Map<String, String>.from(t as Map)).toList() ?? [];
+        _isLoading = false;
+      });
+      return;
+    }
+
     final tracks = await _ytService.getPlaylistTracks(
       widget.playlistData['id']!,
       fallbackQuery: widget.playlistData['title']!,
@@ -148,7 +168,8 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final track = _tracks[index];
-                  return ListTile(
+                  
+                  Widget tile = ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -204,6 +225,29 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                       AudioService().playPlaylist(_tracks, startIndex: index);
                     },
                   );
+
+                  if ((widget.playlistData['id'] ?? '').startsWith('custom_')) {
+                    return Dismissible(
+                      key: Key(track['id'] ?? index.toString()),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red.withOpacity(0.8),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        HistoryService().removeTrackFromPlaylist(widget.playlistData['id']!, track['id']!);
+                        setState(() {
+                          _tracks.removeAt(index);
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed ${track['title']}')));
+                      },
+                      child: tile,
+                    );
+                  }
+
+                  return tile;
                 },
                 childCount: _tracks.length,
               ),
@@ -342,6 +386,9 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   }
 
   Widget _buildHeader() {
+    final imageUrl = widget.playlistData['imageUrl'];
+    final isLikedSongs = widget.playlistData['id'] == 'LM';
+    
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
@@ -349,10 +396,21 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
           width: double.infinity,
           height: 380,
           decoration: BoxDecoration(
-            image: DecorationImage(
-              image: NetworkImage(widget.playlistData['imageUrl']!),
-              fit: BoxFit.cover,
-            ),
+            gradient: (imageUrl == null || imageUrl.isEmpty)
+                ? LinearGradient(
+                    colors: isLikedSongs
+                        ? [const Color(0xFF5E134C), const Color(0xFFF22744)]
+                        : [Theme.of(context).colorScheme.onSurface.withOpacity(0.1), Theme.of(context).colorScheme.onSurface.withOpacity(0.3)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            image: (imageUrl != null && imageUrl.isNotEmpty)
+                ? DecorationImage(
+                    image: NetworkImage(imageUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -427,6 +485,14 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                   IconButton(
                     icon: const Icon(Icons.favorite_border, color: Colors.white),
                     onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.download_rounded, color: Colors.white),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Downloading playlist... (Coming soon)')),
+                      );
+                    },
                   ),
                 ],
               ),

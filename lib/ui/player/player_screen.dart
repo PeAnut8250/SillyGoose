@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/api/audio_service.dart';
 import '../../data/api/youtube_service.dart';
 import '../../data/settings_service.dart';
+import '../../data/history_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -670,24 +671,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 
                 // Bottom tools (Shuffle, Repeat, Autoplay, Queue)
                 ListenableBuilder(
-                  listenable: AudioService(),
+                  listenable: Listenable.merge([AudioService(), HistoryService()]),
                   builder: (context, _) {
                     final audioService = AudioService();
+                    final currentTrack = audioService.currentTrack;
+                    final isLiked = currentTrack != null && HistoryService().isLiked(currentTrack['id']!);
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.favorite_border_rounded),
-                            color: fgColor,
+                            icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                            color: isLiked ? const Color(0xFFE91E63) : fgColor,
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Added to Liked Songs'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
+                              if (currentTrack != null) {
+                                HistoryService().toggleLike(currentTrack);
+                                final action = isLiked ? 'Removed from' : 'Added to';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('$action Liked Songs'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
                             },
                           ),
                           IconButton(

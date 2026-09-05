@@ -11,12 +11,16 @@ class HistoryService extends ChangeNotifier {
   
   List<Map<String, String>> _history = [];
   List<Map<String, String>> _searchHistory = [];
+  List<Map<String, String>> _likedSongs = [];
+  List<Map<String, dynamic>> _playlists = [];
   
   // Real Data Tracker: Key = songId
   Map<String, Map<String, dynamic>> _statsMap = {};
 
   List<Map<String, String>> get history => _history;
   List<Map<String, String>> get searchHistory => _searchHistory;
+  List<Map<String, String>> get likedSongs => _likedSongs;
+  List<Map<String, dynamic>> get playlists => _playlists;
   bool get isInitialized => _initialized;
 
   // Real Data Stats with Bucket Support
@@ -151,6 +155,26 @@ class HistoryService extends ChangeNotifier {
       }).toList();
     }
 
+    final likedJsonList = _prefs.getStringList('liked_songs');
+    if (likedJsonList != null) {
+      _likedSongs = likedJsonList.map((jsonStr) {
+        return Map<String, String>.from(json.decode(jsonStr));
+      }).toList();
+    }
+
+    final playlistsJsonList = _prefs.getStringList('custom_playlists');
+    if (playlistsJsonList != null) {
+      _playlists = playlistsJsonList.map((jsonStr) {
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        final tracksList = (decoded['tracks'] as List?)?.map((t) => Map<String, String>.from(t as Map)).toList() ?? [];
+        return {
+          'id': decoded['id'] as String,
+          'title': decoded['title'] as String,
+          'tracks': tracksList,
+        };
+      }).toList();
+    }
+
     final statsJsonStr = _prefs.getString('listening_stats');
     if (statsJsonStr != null) {
       try {
@@ -225,10 +249,20 @@ class HistoryService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Map<String, String> _sanitizeTrack(Map<String, String> track) {
+    final cleanTrack = Map<String, String>.from(track);
+    cleanTrack.remove('streamUrl');
+    cleanTrack.remove('audioSource');
+    cleanTrack.remove('audioQuality');
+    cleanTrack.remove('audioCodec');
+    return cleanTrack;
+  }
+
   void addTrack(Map<String, String> track) {
     if (!_initialized) return;
-    _history.removeWhere((t) => t['id'] == track['id']);
-    _history.insert(0, track);
+    final cleanTrack = _sanitizeTrack(track);
+    _history.removeWhere((t) => t['id'] == cleanTrack['id']);
+    _history.insert(0, cleanTrack);
     if (_history.length > 50) _history = _history.sublist(0, 50);
     _saveHistory();
     notifyListeners();
@@ -236,10 +270,73 @@ class HistoryService extends ChangeNotifier {
 
   void addSearch(Map<String, String> item) {
     if (!_initialized) return;
-    _searchHistory.removeWhere((t) => t['id'] == item['id']);
-    _searchHistory.insert(0, item);
+    final cleanItem = _sanitizeTrack(item);
+    _searchHistory.removeWhere((t) => t['id'] == cleanItem['id']);
+    _searchHistory.insert(0, cleanItem);
     if (_searchHistory.length > 50) _searchHistory = _searchHistory.sublist(0, 50);
     _saveSearchHistory();
+    notifyListeners();
+  }
+
+  bool isLiked(String id) {
+    return _likedSongs.any((t) => t['id'] == id);
+  }
+
+  void toggleLike(Map<String, String> track) {
+    if (!_initialized) return;
+    final id = track['id'];
+    if (id == null) return;
+
+    if (isLiked(id)) {
+      _likedSongs.removeWhere((t) => t['id'] == id);
+    } else {
+      _likedSongs.insert(0, _sanitizeTrack(track));
+    }
+    _saveLikedSongs();
+    notifyListeners();
+  }
+
+  void createPlaylist(String title) {
+    if (!_initialized) return;
+    final newId = 'custom_${DateTime.now().millisecondsSinceEpoch}';
+    _playlists.add({
+      'id': newId,
+      'title': title,
+      'tracks': <Map<String, String>>[],
+    });
+    _savePlaylists();
+    notifyListeners();
+  }
+
+  void deletePlaylist(String id) {
+    if (!_initialized) return;
+    _playlists.removeWhere((p) => p['id'] == id);
+    _savePlaylists();
+    notifyListeners();
+  }
+
+  void addTrackToPlaylist(String playlistId, Map<String, String> track) {
+    if (!_initialized) return;
+    final playlist = _playlists.firstWhere((p) => p['id'] == playlistId, orElse: () => <String, dynamic>{});
+    if (playlist.isEmpty) return;
+    
+    final tracks = playlist['tracks'] as List<Map<String, String>>;
+    final cleanTrack = _sanitizeTrack(track);
+    if (!tracks.any((t) => t['id'] == cleanTrack['id'])) {
+      tracks.add(cleanTrack);
+      _savePlaylists();
+      notifyListeners();
+    }
+  }
+
+  void removeTrackFromPlaylist(String playlistId, String trackId) {
+    if (!_initialized) return;
+    final playlist = _playlists.firstWhere((p) => p['id'] == playlistId, orElse: () => <String, dynamic>{});
+    if (playlist.isEmpty) return;
+
+    final tracks = playlist['tracks'] as List<Map<String, String>>;
+    tracks.removeWhere((t) => t['id'] == trackId);
+    _savePlaylists();
     notifyListeners();
   }
 
@@ -283,5 +380,15 @@ class HistoryService extends ChangeNotifier {
 
   void _saveStats() {
     _prefs.setString('listening_stats', json.encode(_statsMap));
+  }
+
+  void _saveLikedSongs() {
+    final likedJsonList = _likedSongs.map((t) => json.encode(t)).toList();
+    _prefs.setStringList('liked_songs', likedJsonList);
+  }
+
+  void _savePlaylists() {
+    final playlistsJsonList = _playlists.map((p) => json.encode(p)).toList();
+    _prefs.setStringList('custom_playlists', playlistsJsonList);
   }
 }

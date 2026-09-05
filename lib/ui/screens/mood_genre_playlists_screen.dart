@@ -72,20 +72,20 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Text(
                     widget.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 32, color: Colors.white),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 32, color: Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
               ),
               if (_isLoading)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(color: Theme.of(context).colorScheme.onSurface),
               ),
             )
           else if (_shelves == null || _shelves!.isEmpty)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               child: Center(
-                child: Text('Nothing to explore right now', style: TextStyle(color: Colors.white70)),
+                child: Text('Nothing to explore right now', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
               ),
             )
           else
@@ -102,8 +102,8 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Text(
                             shelf.title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
@@ -114,7 +114,7 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                             child: Text(
                               shelf.strapline!,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 14),
                             ),
                           ),
                         const SizedBox(height: 16),
@@ -160,8 +160,8 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                                       const SizedBox(height: 8),
                                       Text(
                                         item.title,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -171,8 +171,8 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                                       const SizedBox(height: 4),
                                       Text(
                                         item.subtitle,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
+                                        style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                           fontSize: 12,
                                         ),
                                         maxLines: 1,
@@ -225,7 +225,7 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     color: Colors.transparent,
-                    child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
+                    child: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface, size: 24),
                   ),
                 ),
               ],
@@ -273,7 +273,7 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     color: Colors.transparent,
-                    child: const Icon(Icons.search, color: Colors.white, size: 24),
+                    child: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurface, size: 24),
                   ),
                 ),
               ],
