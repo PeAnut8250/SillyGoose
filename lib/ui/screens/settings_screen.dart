@@ -12,6 +12,8 @@ import '../components/liquid_glass.dart';
 import '../components/mini_player.dart';
 import '../components/app_toast.dart';
 import 'sources_screen.dart';
+import 'replay_screen.dart';
+import '../../data/data_backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -357,10 +359,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsHeader('DATA / STATS'),
               _SettingsGroup(
                 children: [
-                  _SettingsNavTile(icon: Icons.bar_chart, title: 'Replay', subtitle: 'Your top songs, artists, albums, genres'),
+                  _SettingsNavTile(
+                    icon: Icons.bar_chart,
+                    title: 'Replay',
+                    subtitle: 'Your top songs, artists, albums, genres',
+                    onTap: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        MaterialPageRoute(builder: (context) => const ReplayScreen()),
+                      );
+                    },
+                  ),
                   _SettingsSwitchTile(icon: Icons.warning_amber, title: 'Warn out genres', subtitle: 'Hide Lofi/Ambient in artists plays...', value: settings.warnOutGenres, onChanged: (v) => settings.setBool('warnOutGenres', v)),
-                  _SettingsNavTile(icon: Icons.file_upload_outlined, title: 'Export data', subtitle: 'Settings and listening history as a JSON file'),
-                  _SettingsNavTile(icon: Icons.file_download_outlined, title: 'Import data', subtitle: 'Restores the settings and history on this device'),
+                  _SettingsNavTile(
+                    icon: Icons.file_upload_outlined,
+                    title: 'Export data',
+                    subtitle: 'Settings and listening history as a JSON file',
+                    onTap: () => DataBackupService().exportData(context),
+                  ),
+                  _SettingsNavTile(
+                    icon: Icons.file_download_outlined,
+                    title: 'Import data',
+                    subtitle: 'Restores the settings and history on this device',
+                    onTap: () => DataBackupService().importData(context),
+                  ),
                 ],
               ),
 
@@ -441,9 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: 'Clear playback history and algorithm memory',
                       onTap: () {
                         HistoryService().clearHistory();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Algorithm learning history cleared!')),
-                        );
+                        showAppToast(context, 'Algorithm learning history cleared!');
                       },
                     ),
                   ],
@@ -480,17 +499,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'Check for Updates',
                       subtitle: 'Version 1.0.2 • Tap to check GitHub releases',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Checking for updates...')),
-                        );
+                        showAppToast(context, 'Checking for updates...');
                         UpdateService.checkForUpdate().then((info) {
                           if (!context.mounted) return;
                           if (info != null && info.hasUpdate) {
                             UpdateService.showUpdateDialogIfAvailable(context);
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('SillyGoose is up to date! 🎉')),
-                            );
+                            showAppToast(context, 'SillyGoose is up to date! 🎉');
                           }
                         });
                       },

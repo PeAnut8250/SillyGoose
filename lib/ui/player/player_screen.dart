@@ -303,13 +303,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
           backgroundColor: isDynamic || isCool ? Colors.transparent : null,
           body: GestureDetector(
             onPanStart: (details) {
-              _dragDistanceX = 0;
-              _dragDistanceY = 0;
-              _isPopping = false;
+              setState(() {
+                _dragDistanceX = 0;
+                _dragDistanceY = 0;
+                _isPopping = false;
+              });
             },
             onPanUpdate: (details) {
-              _dragDistanceX += details.delta.dx;
-              _dragDistanceY += details.delta.dy;
+              setState(() {
+                _dragDistanceX += details.delta.dx;
+                _dragDistanceY += details.delta.dy;
+              });
               
               // Make swipe down to close easier (threshold 70 instead of 100)
               if (_dragDistanceY > 70 && !_isPopping) {
@@ -318,16 +322,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               }
             },
             onPanEnd: (details) {
-              if (_isPopping) return;
-              
-              // Require a much firmer horizontal swipe to skip (threshold 180 instead of 100)
-              if (_dragDistanceX.abs() > _dragDistanceY.abs() && _dragDistanceX.abs() > 180) {
+              if (!_isPopping && _dragDistanceX.abs() > _dragDistanceY.abs() && _dragDistanceX.abs() > 100) {
                 if (_dragDistanceX < 0) {
                   AudioService().skipToNext();
                 } else {
                   AudioService().skipToPrevious();
                 }
               }
+              setState(() {
+                _dragDistanceX = 0;
+                _dragDistanceY = 0;
+              });
             },
             child: Stack(
               fit: StackFit.expand,
@@ -365,10 +370,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                   )
                 else
-                  Image.network(
-                    track['imageUrl']!,
-                    fit: BoxFit.cover,
-                    cacheWidth: SettingsService().fullScreenCover ? null : 8,
+                  Transform.scale(
+                    scale: ((track['imageUrl'] ?? '').contains('ytimg.com')) ? 1.34 : 1.0,
+                    child: Image.network(
+                      track['imageUrl']!,
+                      fit: BoxFit.cover,
+                      cacheWidth: SettingsService().fullScreenCover ? null : 8,
+                      errorBuilder: (context, error, stackTrace) => Image.network(
+                        'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 if (!SettingsService().fullScreenCover)
                   Container(
@@ -470,14 +482,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: Image.network(
-                            track['imageUrl']!,
-                            fit: BoxFit.cover,
+                          child: Transform.scale(
+                            scale: ((track['imageUrl'] ?? '').contains('ytimg.com')) ? 1.34 : 1.0,
+                            child: Image.network(
+                              track['imageUrl']!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Image.network(
+                                'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
+                
+                // Swipe indicator icon (<< for previous, >> for next) shown while dragging on cover
+                SizedBox(
+                  height: 20,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 100),
+                      opacity: (_dragDistanceX.abs() > 25 && _dragDistanceX.abs() > _dragDistanceY.abs()) ? 1.0 : 0.0,
+                      child: Icon(
+                        _dragDistanceX < 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+                        size: 14,
+                        color: fgColor.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                ),
                 
                 const Spacer(flex: 1),
                 

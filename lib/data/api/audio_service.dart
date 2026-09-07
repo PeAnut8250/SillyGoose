@@ -102,16 +102,28 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       if (!kIsWeb && (Platform.isIOS || Platform.isAndroid || Platform.isMacOS)) {
         final session = await AudioSession.instance;
         await session.configure(const AudioSessionConfiguration.music());
-        // Re-request audio focus automatically when we regain it (e.g. after a phone call)
+        
         session.interruptionEventStream.listen((event) {
           if (event.begin) {
-            // Interruption began (call, notification audio) — pause
-            _player.pause();
+            switch (event.type) {
+              case AudioInterruptionType.duck:
+                _player.setVolume(0.5);
+                break;
+              case AudioInterruptionType.pause:
+              case AudioInterruptionType.unknown:
+                _player.pause();
+                break;
+            }
           } else {
-            // Interruption ended — resume if we were playing before
-            if (event.type == AudioInterruptionType.pause ||
-                event.type == AudioInterruptionType.duck) {
-              _player.play();
+            switch (event.type) {
+              case AudioInterruptionType.duck:
+                _player.setVolume(1.0);
+                break;
+              case AudioInterruptionType.pause:
+                _player.play();
+                break;
+              case AudioInterruptionType.unknown:
+                break;
             }
           }
         });
@@ -224,11 +236,15 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       _activePlayerDurationSub = p.durationStream.listen((duration) {
         if (p != _activePlayer) return;
         if (Platform.isWindows || Platform.isLinux) return;
-        if (duration != null && mediaItem.hasValue) {
-          final currentMediaItem = mediaItem.value;
-          if (currentMediaItem != null) {
-            mediaItem.add(currentMediaItem.copyWith(duration: duration));
-          }
+        if (duration != null && currentTrack != null) {
+          final track = currentTrack!;
+          mediaItem.add(asrv.MediaItem(
+            id: track['id']!,
+            title: track['title'] ?? 'Unknown Track',
+            artist: track['subtitle'] ?? 'Unknown Artist',
+            artUri: track['imageUrl'] != null ? Uri.tryParse(track['imageUrl']!) : null,
+            duration: duration,
+          ));
         }
       });
     } else {
@@ -667,7 +683,7 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
     // Automatically upgrade blurry legacy YouTube thumbnails from history
     if (track['imageUrl'] != null && track['imageUrl']!.contains('default.jpg') && track['id'] != null) {
       track = Map<String, String>.from(track);
-      track['imageUrl'] = 'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg';
+      track['imageUrl'] = 'https://i.ytimg.com/vi/${track['id']}/maxresdefault.jpg';
     }
 
     _currentRequestId++;
@@ -701,6 +717,18 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       _isRestoredAndUnloaded = false;
       _preloadedTrackId = null; // Clear preloaded state as we are manually loading a track
       _saveState();
+      
+      // Instantly update the Android/iOS Notification Panel so it never shows stale/previous song metadata
+      if (!Platform.isWindows && !Platform.isLinux) {
+        mediaItem.add(asrv.MediaItem(
+          id: track['id']!,
+          title: track['title'] ?? 'Unknown Track',
+          artist: track['subtitle'] ?? 'Unknown Artist',
+          artUri: track['imageUrl'] != null ? Uri.tryParse(track['imageUrl']!) : null,
+          duration: null,
+        ));
+      }
+      
       notifyListeners();
       
       // Pause the previous song immediately so it doesn't keep playing 
@@ -800,6 +828,16 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
           
           await _player.setAudioSource(audioSource).timeout(const Duration(seconds: 15));
           SongCacheService().enforceCacheLimit();
+          
+          if (!Platform.isWindows && !Platform.isLinux) {
+            mediaItem.add(asrv.MediaItem(
+              id: track['id']!,
+              title: track['title'] ?? 'Unknown Track',
+              artist: track['subtitle'] ?? 'Unknown Artist',
+              artUri: track['imageUrl'] != null ? Uri.tryParse(track['imageUrl']!) : null,
+              duration: _player.duration,
+            ));
+          }
         } catch (e) {
           print('Failed to set audio source with cached URL, re-fetching fresh URL: $e');
           if (requestId != _currentRequestId) return;

@@ -20,6 +20,7 @@ import 'artist_screen.dart';
 import 'settings_screen.dart';
 import '../../data/settings_service.dart';
 import '../components/liquid_glass.dart';
+import '../components/app_toast.dart';
 class ReplayScreen extends StatefulWidget {
   const ReplayScreen({super.key});
 
@@ -695,11 +696,11 @@ class _ReplayShareSheetState extends State<ReplayShareSheet> {
         await Share.shareXFiles([XFile(file.path)], text: 'Check out my Replay on SillyGoose!');
         if (context.mounted) Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image saved to cache!')));
+        if (context.mounted) showAppToast(context, 'Image saved to cache!');
       }
     } catch (e) {
       debugPrint('Error saving share image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to generate image.')));
+      if (context.mounted) showAppToast(context, 'Failed to generate image.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

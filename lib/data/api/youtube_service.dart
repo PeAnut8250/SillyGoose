@@ -307,7 +307,7 @@ class YoutubeService {
             'subtitle': filterType == 'Albums' || filterType == 'Playlists' 
                 ? 'Full Album Video • $artist' 
                 : artist,
-            'imageUrl': 'https://i.ytimg.com/vi/${video.id.value}/hqdefault.jpg',
+            'imageUrl': video.thumbnails.highResUrl,
             'type': 'song',
             'duration': video.duration != null ? '${video.duration!.inMinutes}:${(video.duration!.inSeconds % 60).toString().padLeft(2, '0')}' : '',
           };
@@ -368,7 +368,7 @@ class YoutubeService {
             'id': item.id.value,
             'title': title,
             'subtitle': artist,
-            'imageUrl': 'https://i.ytimg.com/vi/${item.id.value}/hqdefault.jpg',
+            'imageUrl': 'https://i.ytimg.com/vi/${item.id.value}/maxresdefault.jpg',
             'type': 'song',
             'duration': item.duration ?? '',
           };

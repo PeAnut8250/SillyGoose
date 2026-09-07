@@ -10,6 +10,7 @@ import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
 import '../widgets/floating_search_window.dart';
 import '../../data/history_service.dart';
+import '../components/app_toast.dart';
 
 class PlaylistScreen extends StatefulWidget {
   final Map<String, String> playlistData;
@@ -241,13 +242,35 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                         setState(() {
                           _tracks.removeAt(index);
                         });
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed ${track['title']}')));
+                        showAppToast(context, 'Removed ${track['title']}');
                       },
                       child: tile,
                     );
                   }
 
-                  return tile;
+                  return Dismissible(
+                    key: ValueKey('swipe_pl_${track['id']}_$index'),
+                    direction: DismissDirection.endToStart,
+                    confirmDismiss: (direction) async {
+                      AudioService().addTrackToQueue(track);
+                      showAppToast(context, 'Added to queue');
+                      return false;
+                    },
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      color: const Color(0xFF2C2C2E),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.queue_music, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    child: tile,
+                  );
                 },
                 childCount: _tracks.length,
               ),
@@ -489,9 +512,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                   IconButton(
                     icon: const Icon(Icons.download_rounded, color: Colors.white),
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Downloading playlist... (Coming soon)')),
-                      );
+                      showAppToast(context, 'Downloading playlist... (Coming soon)');
                     },
                   ),
                 ],

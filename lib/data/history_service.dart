@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'settings_service.dart';
 
 class HistoryService extends ChangeNotifier {
   static final HistoryService _instance = HistoryService._internal();
@@ -23,9 +24,31 @@ class HistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> get playlists => _playlists;
   bool get isInitialized => _initialized;
 
+  bool _isWarnOutTrack(Map<String, dynamic> item) {
+    if (!SettingsService().warnOutGenres) return false;
+    final title = (item['title'] ?? '').toString().toLowerCase();
+    final artist = (item['artist'] ?? '').toString().toLowerCase();
+    final genre = (item['genre'] ?? '').toString().toLowerCase();
+
+    const keywords = [
+      'lofi', 'lo-fi', 'ambient', 'white noise', 'rain sound', 'sleep',
+      'study beat', 'meditative', 'relaxing', 'soft piano', 'nature sound',
+      'chillhop', 'soothing', 'binaural', 'deep sleep', 'lullaby', 'asmr',
+      'calm music', 'spa music', 'meditation', 'instrumental study', 'focus beats'
+    ];
+
+    for (final k in keywords) {
+      if (title.contains(k) || artist.contains(k) || genre.contains(k)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Real Data Stats with Bucket Support
   int getTotalPlays({String bucketKey = 'allTime'}) {
     return _statsMap.values.fold(0, (sum, item) {
+      if (_isWarnOutTrack(item)) return sum;
       final buckets = item['buckets'] as Map<String, dynamic>?;
       if (buckets == null || !buckets.containsKey(bucketKey)) return sum;
       return sum + ((buckets[bucketKey]['plays'] ?? 0) as int);
@@ -34,6 +57,7 @@ class HistoryService extends ChangeNotifier {
 
   int getTotalMinutesListened({String bucketKey = 'allTime'}) {
     return (_statsMap.values.fold(0, (sum, item) {
+      if (_isWarnOutTrack(item)) return sum;
       final buckets = item['buckets'] as Map<String, dynamic>?;
       if (buckets == null || !buckets.containsKey(bucketKey)) return sum;
       return sum + ((buckets[bucketKey]['playedMs'] ?? 0) as int);
@@ -42,6 +66,7 @@ class HistoryService extends ChangeNotifier {
 
   int getTotalUniqueSongs({String bucketKey = 'allTime'}) {
     return _statsMap.values.where((item) {
+      if (_isWarnOutTrack(item)) return false;
       final buckets = item['buckets'] as Map<String, dynamic>?;
       if (buckets == null || !buckets.containsKey(bucketKey)) return false;
       return ((buckets[bucketKey]['playedMs'] ?? 0) as int) > 0 || ((buckets[bucketKey]['plays'] ?? 0) as int) > 0;
@@ -50,6 +75,7 @@ class HistoryService extends ChangeNotifier {
 
   int getTotalUniqueArtists({String bucketKey = 'allTime'}) {
     return _statsMap.values.where((item) {
+      if (_isWarnOutTrack(item)) return false;
       final buckets = item['buckets'] as Map<String, dynamic>?;
       if (buckets == null || !buckets.containsKey(bucketKey)) return false;
       return ((buckets[bucketKey]['playedMs'] ?? 0) as int) > 0 || ((buckets[bucketKey]['plays'] ?? 0) as int) > 0;
@@ -58,6 +84,7 @@ class HistoryService extends ChangeNotifier {
 
   List<Map<String, dynamic>> getTopSongs({String bucketKey = 'allTime'}) {
     final list = _statsMap.values.where((item) {
+      if (_isWarnOutTrack(item)) return false;
       final buckets = item['buckets'] as Map<String, dynamic>?;
       return buckets != null && buckets.containsKey(bucketKey);
     }).toList();
@@ -97,6 +124,7 @@ class HistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> getTopArtists({String bucketKey = 'allTime'}) {
     final map = <String, Map<String, dynamic>>{};
     for (var track in _statsMap.values) {
+      if (_isWarnOutTrack(track)) continue;
       final buckets = track['buckets'] as Map<String, dynamic>?;
       if (buckets == null || !buckets.containsKey(bucketKey)) continue;
 

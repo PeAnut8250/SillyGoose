@@ -7,6 +7,7 @@ import '../../data/history_service.dart';
 import 'playlist_screen.dart';
 import 'artist_screen.dart';
 import '../widgets/song_options_menu.dart';
+import '../components/app_toast.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter/rendering.dart';
 import '../../data/scroll_service.dart';
@@ -318,7 +319,7 @@ class _SearchScreenState extends State<SearchScreen> {
               builder: (context, _) {
                 final isPlaying = AudioService().currentTrack?['id'] == result['id'];
                 
-                return InkWell(
+                final Widget tile = InkWell(
                   onTap: () {
                     _focusNode.unfocus();
                     if (type == 'song') {
@@ -408,6 +409,32 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   ),
                 );
+                if (type == 'song') {
+                  return Dismissible(
+                    key: ValueKey('swipe_hist_${result['id']}_$index'),
+                    direction: DismissDirection.endToStart,
+                    confirmDismiss: (direction) async {
+                      AudioService().addTrackToQueue(result);
+                      showAppToast(context, 'Added to queue');
+                      return false;
+                    },
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      color: const Color(0xFF2C2C2E),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.queue_music, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    child: tile,
+                  );
+                }
+                return tile;
               },
             );
           },
@@ -560,101 +587,127 @@ class _SearchScreenState extends State<SearchScreen> {
           builder: (context, _) {
             final isPlaying = AudioService().currentTrack?['id'] == result['id'];
             
-            return InkWell(
-          onTap: () {
-            _focusNode.unfocus();
-            HistoryService().addSearch(result);
-            if (type == 'song') {
-              if (AudioService().isShuffleEnabled) {
-                // User wants "Radio Mode" (random mix of related artists via Autoplay)
-                AudioService().playTrack(result);
-              } else {
-                // User wants to strictly play the search results sequentially
-                final songResults = _searchResults.where((r) => r['type'] == 'song').toList();
-                final tappedIndex = songResults.indexWhere((r) => r['id'] == result['id']);
-                
-                AudioService().playPlaylist(
-                  songResults, 
-                  startIndex: tappedIndex >= 0 ? tappedIndex : 0
-                );
-              }
-            } else if (type == 'playlist') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PlaylistScreen(playlistData: result)),
-              );
-            } else if (type == 'artist') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ArtistScreen(artistData: result)),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(isArtist ? 100 : 8),
-                  child: Image.network(
-                    result['imageUrl']!,
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        result['title']!,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onBackground,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        result['subtitle']!,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+            final Widget tile = InkWell(
+              onTap: () {
+                _focusNode.unfocus();
+                HistoryService().addSearch(result);
+                if (type == 'song') {
+                  if (AudioService().isShuffleEnabled) {
+                    // User wants "Radio Mode" (random mix of related artists via Autoplay)
+                    AudioService().playTrack(result);
+                  } else {
+                    // User wants to strictly play the search results sequentially
+                    final songResults = _searchResults.where((r) => r['type'] == 'song').toList();
+                    final tappedIndex = songResults.indexWhere((r) => r['id'] == result['id']);
+                    
+                    AudioService().playPlaylist(
+                      songResults, 
+                      startIndex: tappedIndex >= 0 ? tappedIndex : 0
+                    );
+                  }
+                } else if (type == 'playlist') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => PlaylistScreen(playlistData: result)),
+                  );
+                } else if (type == 'artist') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ArtistScreen(artistData: result)),
+                  );
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
                   children: [
-                    if (result['duration'] != null && result['duration']!.isNotEmpty)
-                      isPlaying
-                          ? AnimatedEqualizer(isAudioPlaying: AudioService().isPlaying, color: Theme.of(context).colorScheme.primary)
-                          : Text(
-                              result['duration']!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(isArtist ? 100 : 8),
+                      child: Image.network(
+                        result['imageUrl']!,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            result['title']!,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onBackground,
                             ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      onPressed: () {
-                        showSongOptionsMenu(context, result);
-                      },
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            result['subtitle']!,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (result['duration'] != null && result['duration']!.isNotEmpty)
+                          isPlaying
+                              ? AnimatedEqualizer(isAudioPlaying: AudioService().isPlaying, color: Theme.of(context).colorScheme.primary)
+                              : Text(
+                                  result['duration']!,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          onPressed: () {
+                            showSongOptionsMenu(context, result);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+            if (type == 'song') {
+              return Dismissible(
+                key: ValueKey('swipe_srch_${result['id']}_$index'),
+                direction: DismissDirection.endToStart,
+                confirmDismiss: (direction) async {
+                  AudioService().addTrackToQueue(result);
+                  showAppToast(context, 'Added to queue');
+                  return false;
+                },
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 24),
+                  color: const Color(0xFF2C2C2E),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.queue_music, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                child: tile,
+              );
+            }
+            return tile;
+          },
         );
-      },
-    );
       },
     );
   }

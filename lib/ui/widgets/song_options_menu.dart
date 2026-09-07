@@ -224,7 +224,7 @@ void _showAddToPlaylistModal(BuildContext context, Map<String, String> track) {
                       onTap: () {
                         Navigator.pop(context);
                         HistoryService().addTrackToPlaylist(playlist['id'], track);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to ${playlist['title']}')));
+                        showAppToast(context, 'Added to ${playlist['title']}');
                       },
                     );
                   },
