@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
 import '../../data/app_localizations.dart';
@@ -36,7 +37,7 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
       switch (displayIndex) {
         case 1: icon = Icons.explore; break;
         case 2: icon = Icons.library_music; break;
-        case 3: icon = Icons.search; break; // Fallback just in case previous was also search
+        case 3: icon = CupertinoIcons.search; break; // Fallback just in case previous was also search
         default: icon = Icons.home; break;
       }
       return GestureDetector(
@@ -90,7 +91,7 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
               child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onHorizontalDragUpdate: (details) {
-                  final pillWidth = MediaQuery.of(context).size.width - 88.0; // 88 = left/right padding + 48px search button + gap
+                  final pillWidth = MediaQuery.of(context).size.width - 128.0;
                   final tabWidth = pillWidth / 3;
                   
                   setState(() {
@@ -114,62 +115,72 @@ class _FloatingBottomBarState extends State<FloatingBottomBar> {
                 },
                 child: LayoutBuilder(
             builder: (context, constraints) {
-              final tabWidth = constraints.maxWidth / 3;
+              final fullWidth = MediaQuery.of(context).size.width - 128.0;
+              final tabWidth = fullWidth / 3;
               final safeIndex = widget.selectedIndex >= 3 ? 0 : widget.selectedIndex;
-              final indicatorPosition = _dragPosition ?? (safeIndex * tabWidth);
+              final rawIndicatorPos = _dragPosition ?? (safeIndex * tabWidth);
               
-              return Stack(
-                children: [
-                  // Selected Tab Background Indicator (Material 3 style)
-                  AnimatedPositioned(
-                    duration: _dragPosition != null ? Duration.zero : const Duration(milliseconds: 200),
-                    curve: Curves.fastOutSlowIn,
-                    left: indicatorPosition + (tabWidth - 96) / 2, // Center the 96px pill horizontally
-                    top: 4, 
-                    bottom: 4,
-                    width: 96,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 150),
-                      opacity: widget.selectedIndex == 3 ? 0.0 : 1.0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15), // Translucent white works on both dark and colorful backgrounds
-                          borderRadius: BorderRadius.circular(100),
+              final pillLeft = rawIndicatorPos + (tabWidth - 96) / 2;
+              final hidePill = widget.selectedIndex == 3;
+
+              return OverflowBox(
+                minWidth: fullWidth,
+                maxWidth: fullWidth,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: fullWidth,
+                  child: Stack(
+                    children: [
+                      // Selected Tab Background Indicator (Material 3 style)
+                      AnimatedPositioned(
+                        duration: _dragPosition != null ? Duration.zero : const Duration(milliseconds: 200),
+                        curve: Curves.fastOutSlowIn,
+                        left: pillLeft,
+                        top: 4, 
+                        bottom: 4,
+                        width: 96,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 150),
+                          opacity: hidePill ? 0.0 : 1.0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      
+                      // Tab Icons and Labels
+                      Positioned.fill(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: List.generate(3, (index) {
+                            IconData icon;
+                            String label;
+                            final l10n = AppLocalizations.of(context);
+                            switch (index) {
+                              case 1: 
+                                icon = Icons.explore; 
+                                label = 'Explore';
+                                break;
+                              case 2: 
+                                icon = Icons.library_music_rounded; 
+                                label = l10n.library;
+                                break;
+                              default: 
+                                icon = Icons.home_rounded; 
+                                label = l10n.home;
+                                break;
+                            }
+                            
+                            return _buildTab(context, index, icon, icon, label);
+                          }),
+                        ),
+                      ),
+                    ],
                   ),
-                  
-                  // Tab Icons and Labels
-                  Positioned.fill(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: List.generate(3, (index) {
-                        final isSelected = index == widget.selectedIndex;
-                        
-                        IconData icon;
-                        String label;
-                        final l10n = AppLocalizations.of(context);
-                        switch (index) {
-                          case 1: 
-                            icon = Icons.explore; 
-                            label = 'Explore';
-                            break;
-                          case 2: 
-                            icon = Icons.library_music_rounded; 
-                            label = l10n.library;
-                            break;
-                          default: 
-                            icon = Icons.home_rounded; 
-                            label = l10n.home;
-                            break;
-                        }
-                        
-                        return _buildTab(context, index, icon, icon, label);
-                      }),
-                    ),
-                  ),
-                ],
+                ),
               );
             },
           ),

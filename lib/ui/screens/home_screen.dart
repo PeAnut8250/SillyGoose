@@ -52,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
         if (topGlobal.isNotEmpty) {
           topTracks = await _ytService.getPlaylistTracks(topGlobal.first['id']!);
         }
-        
         if (topTracks.isEmpty) {
           topTracks = await _ytService.searchSongs('Top Hit Songs 2024');
         }
@@ -64,15 +63,23 @@ class _HomeScreenState extends State<HomeScreen> {
           'items': topTracks.take(10).toList(),
         });
 
-        final trending = await _ytService.searchSongs('Trending Music');
+        final trending = await _ytService.searchSongs('Trending Music Hits');
         newShelves.add({
           'title': 'Trending Now',
           'subtitle': 'Catch up with the latest trends',
           'isHero': false,
           'items': trending.take(15).toList(),
         });
+
+        final partyHits = await _ytService.searchSongs('Party Hits 2024');
+        newShelves.add({
+          'title': 'Party & Energy',
+          'subtitle': 'High energy tracks to get you moving',
+          'isHero': false,
+          'items': partyHits.take(15).toList(),
+        });
       } else {
-        // Returning user
+        // Returning user - Full Spotify Style Recommendation Engine
         newShelves.add({
           'title': 'Jump Back In',
           'subtitle': 'Your recent favorites',
@@ -80,49 +87,69 @@ class _HomeScreenState extends State<HomeScreen> {
           'items': history.take(10).toList(),
         });
 
-        // Pick a random recent song to seed the "Songs You Might Like"
-        final randomHistoryTrack = history[DateTime.now().millisecond % (history.length > 5 ? 5 : history.length)];
-        List<Map<String, String>> mightLike = await _ytService.getUpNext(randomHistoryTrack['id']!);
-        
-        if (mightLike.isEmpty) {
-          final artistName = randomHistoryTrack['subtitle']?.split(' - ').first ?? 'Trending Music';
-          mightLike = await _ytService.searchSongs(artistName);
-          mightLike.removeWhere((track) => track['id'] == randomHistoryTrack['id']);
-        }
-
-        // Section 2: Recommended for You (Based on Top Artist)
         final topArtists = HistoryService().getTopArtists();
+
+        // 1. Recommended for You (Top Artist #1)
         if (topArtists.isNotEmpty) {
-          final topArtistName = topArtists.first['name'] as String;
-          final recommended = await _ytService.searchSongs('$topArtistName music');
-          
-          if (recommended.isNotEmpty) {
+          final artist1 = topArtists.first['name'] as String;
+          final artist1Tracks = await _ytService.searchSongs('$artist1 top songs');
+          if (artist1Tracks.isNotEmpty) {
             newShelves.add({
               'title': 'Recommended for You',
-              'subtitle': 'Because you listen to $topArtistName',
+              'subtitle': 'Because you listen to $artist1',
               'isHero': false,
-              'items': recommended.take(15).toList(),
+              'items': artist1Tracks.take(15).toList(),
             });
           }
-        } else {
-          // Fallback if they have no top artist data yet
-          newShelves.add({
-            'title': 'Recommended for You',
-            'subtitle': 'Based on your listening history',
-            'isHero': false,
-            'items': mightLike.take(15).toList(), // Share the list
-          });
         }
-        
-        // Section 3: Songs You Might Like (Algorithm learning)
-        if (mightLike.isNotEmpty && topArtists.isNotEmpty) {
-          // Shuffle the mightLike list a bit so it feels different from Recommended if they share items
+
+        // 2. Discover More (Top Artist #2)
+        if (topArtists.length > 1) {
+          final artist2 = topArtists[1]['name'] as String;
+          final artist2Tracks = await _ytService.searchSongs('$artist2 hits');
+          if (artist2Tracks.isNotEmpty) {
+            newShelves.add({
+              'title': 'More of What You Love',
+              'subtitle': 'Featuring $artist2 and similar artists',
+              'isHero': false,
+              'items': artist2Tracks.take(15).toList(),
+            });
+          }
+        }
+
+        // 3. UpNext Algorithmic Discovery
+        final seedTrack = history[DateTime.now().millisecond % (history.length > 5 ? 5 : history.length)];
+        List<Map<String, String>> mightLike = await _ytService.getUpNext(seedTrack['id']!);
+        if (mightLike.isNotEmpty) {
           mightLike.shuffle();
           newShelves.add({
             'title': 'Songs You Might Like',
             'subtitle': 'Discover something new',
             'isHero': false,
             'items': mightLike.take(15).toList(),
+          });
+        }
+
+        // 4. Mixes & Playlists For You (Spotify Daily Mix Style)
+        final mainArtist = topArtists.isNotEmpty ? topArtists.first['name'] as String : 'Popular';
+        final mixTracks = await _ytService.searchSongs('$mainArtist playlist mix');
+        if (mixTracks.isNotEmpty) {
+          newShelves.add({
+            'title': 'Made For You',
+            'subtitle': 'A mix tuned to your music taste',
+            'isHero': false,
+            'items': mixTracks.take(15).toList(),
+          });
+        }
+
+        // 5. Trending & Viral Hits
+        final trending = await _ytService.searchSongs('Top Trending Charts');
+        if (trending.isNotEmpty) {
+          newShelves.add({
+            'title': 'Trending & Charts',
+            'subtitle': 'What everyone is playing right now',
+            'isHero': false,
+            'items': trending.take(15).toList(),
           });
         }
       }
@@ -253,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _scrollOffset = scrollInfo.metrics.pixels;
                   });
                 }
-                if (scrollInfo is UserScrollNotification) {
+                if (scrollInfo is UserScrollNotification && scrollInfo.metrics.axis == Axis.vertical) {
                   if (scrollInfo.direction == ScrollDirection.reverse) {
                     ScrollService().setScrolledDown(true);
                   } else if (scrollInfo.direction == ScrollDirection.forward) {

@@ -84,7 +84,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
           children: [
             NotificationListener<ScrollNotification>(
               onNotification: (scrollInfo) {
-                if (scrollInfo is UserScrollNotification) {
+                if (scrollInfo is UserScrollNotification && scrollInfo.metrics.axis == Axis.vertical) {
                   if (scrollInfo.direction == ScrollDirection.reverse) {
                     ScrollService().setScrolledDown(true);
                   } else if (scrollInfo.direction == ScrollDirection.forward) {

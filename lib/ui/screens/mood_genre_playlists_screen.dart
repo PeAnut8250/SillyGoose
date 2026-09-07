@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import '../../data/scroll_service.dart';
 import '../../data/api/youtube_service.dart';
 import '../../data/models/explore_models.dart';
 import 'playlist_screen.dart';
@@ -61,7 +63,18 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
       backgroundColor: Colors.transparent, // Inherit mesh gradient
       body: Stack(
         children: [
-          CustomScrollView(
+          NotificationListener<ScrollNotification>(
+            onNotification: (scrollInfo) {
+              if (scrollInfo is UserScrollNotification && scrollInfo.metrics.axis == Axis.vertical) {
+                if (scrollInfo.direction == ScrollDirection.reverse) {
+                  ScrollService().setScrolledDown(true);
+                } else if (scrollInfo.direction == ScrollDirection.forward) {
+                  ScrollService().setScrolledDown(false);
+                }
+              }
+              return false;
+            },
+            child: CustomScrollView(
             controller: _scrollController,
             slivers: [
               SliverToBoxAdapter(
@@ -197,6 +210,7 @@ class _MoodGenrePlaylistsScreenState extends State<MoodGenrePlaylistsScreen> {
           ),
         ],
       ),
+    ),
       // Custom Fixed Back Button
       Positioned(
         top: MediaQuery.of(context).padding.top + 8,

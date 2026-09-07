@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import '../components/floating_bottom_bar.dart';
 import '../../data/api/audio_service.dart';
@@ -54,36 +55,35 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
               listenable: Listenable.merge([AudioService(), ScrollService()]),
               builder: (context, _) {
                 final track = AudioService().currentTrack;
-                if (track == null) return SizedBox.shrink();
-
                 final isInline = ScrollService().isScrolledDown;
 
                 return SizedBox(
                   height: 200, // Fixed height to contain the animations safely
                   child: Stack(
                     children: [
-                      // MiniPlayer
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeOutCubic,
-                        left: isInline ? (16.0 + 42.0 + 8.0) : 16.0,
-                        right: isInline ? (16.0 + 42.0 + 8.0) : 16.0,
-                        bottom: isInline ? 24.0 : (24.0 + 48.0 + 4.0), // 48 is the new expanded bar height, 4px gap
-                        height: isInline ? 42.0 : 48.0, // Shrunk from 56 to 48
-                        child: MiniPlayer(
-                          track: track,
-                          isInline: isInline,
+                      // MiniPlayer (only if track is playing)
+                      if (track != null)
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutCubic,
+                          left: isInline ? (36.0 + 42.0 + 8.0) : 36.0,
+                          right: isInline ? (36.0 + 42.0 + 8.0) : 36.0,
+                          bottom: isInline ? 24.0 : (24.0 + 48.0 + 4.0),
+                          height: isInline ? 42.0 : 48.0,
+                          child: MiniPlayer(
+                            track: track,
+                            isInline: isInline,
+                          ),
                         ),
-                      ),
                       
                       // FloatingBottomBar (Tabs)
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 400),
                         curve: Curves.easeOutCubic,
-                        left: 16.0,
-                        width: isInline ? 42.0 : MediaQuery.of(context).size.width - 88.0, // 88 = 16 left + 16 right + 48 search width + 8 gap
+                        left: 36.0,
+                        width: isInline ? 42.0 : MediaQuery.of(context).size.width - 128.0, // 128 = 36 left + 36 right + 48 search + 8 gap
                         bottom: 24.0,
-                        height: isInline ? 42.0 : 48.0, // Shrunk from 56 to 48
+                        height: isInline ? 42.0 : 48.0,
                         child: FloatingBottomBar(
                           selectedIndex: widget.navigationShell.currentIndex,
                           previousIndex: _previousIndex,
@@ -96,10 +96,10 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
                       AnimatedPositioned(
                         duration: const Duration(milliseconds: 400),
                         curve: Curves.easeOutCubic,
-                        right: 16.0,
-                        bottom: 24.0, // Aligned with the 48px nav bar
-                        width: isInline ? 42.0 : 48.0, // Shrunk from 56 to 48
-                        height: isInline ? 42.0 : 48.0, // Shrunk from 56 to 48
+                        right: 36.0,
+                        bottom: 24.0,
+                        width: isInline ? 42.0 : 48.0,
+                        height: isInline ? 42.0 : 48.0,
                         child: ListenableBuilder(
                           listenable: SettingsService(),
                           builder: (context, _) {
@@ -118,9 +118,9 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
                                 ),
                                 child: IconButton(
                                   icon: Icon(
-                                    Icons.search,
+                                    CupertinoIcons.search,
                                     color: isSearchSelected ? activeColor : Theme.of(context).colorScheme.onSurface,
-                                    size: isInline ? 20 : 24,
+                                    size: isInline ? 20 : 22,
                                   ),
                                   onPressed: () {
                                     _onTabSelected(3);
@@ -139,18 +139,6 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
           ),
         ],
       ),
-      bottomNavigationBar: ListenableBuilder(
-        listenable: AudioService(),
-        builder: (context, _) {
-          // If a track is playing, the FloatingBottomBar is part of the Stack above
-          if (AudioService().currentTrack != null) return SizedBox.shrink();
-          
-          return FloatingBottomBar(
-            selectedIndex: widget.navigationShell.currentIndex,
-            previousIndex: _previousIndex,
-            onTabSelected: _onTabSelected,
-          );
-        },
-      ),
+      bottomNavigationBar: const SizedBox.shrink(),
     );
   }}

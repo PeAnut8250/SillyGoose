@@ -165,19 +165,20 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
 
       _activePlayerStateSub = p.playerStateStream.listen((state) {
         if (p != _activePlayer) return;
-        if (state.processingState == ProcessingState.completed && !_isLoading && !_isCrossfading) {
+        if (state.processingState == ProcessingState.completed && !_isLoading) {
+          _isCrossfading = false;
           _flushAccumulatedTime();
-          if (_hasPlayedCurrentTrack) {
-            if (repeatMode == 2) {
-              p.seek(Duration.zero);
-              p.play();
-              return;
-            } else {
-              skipToNext();
-              return;
-            }
+          if (repeatMode == 2) {
+            p.seek(Duration.zero);
+            p.play();
+            return;
           } else {
-            p.pause();
+            // Keep Android Foreground Service CPU awake while fetching next stream URL
+            _isLoading = true;
+            _broadcastState();
+            notifyListeners();
+            skipToNext();
+            return;
           }
         }
         _broadcastState();
@@ -280,7 +281,12 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
     // -- 2. Load next track into the secondary player (fading in) --------
     try {
       final url = getProxyUrl(nextTrack['streamUrl']!);
-      await fadingInPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await fadingInPlayer.setAudioSource(AudioSource.uri(
+        Uri.parse(url),
+        headers: const {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      ));
       await fadingInPlayer.setVolume(0.0);
       await fadingInPlayer.seek(Duration.zero);
       await fadingInPlayer.play();
@@ -448,7 +454,7 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
             clientResponse.listen((_) {}).cancel(); 
             await request.response.close();
           } else {
-            await clientResponse.pipe(request.response);
+            await clientResponse.pipe(request.response).catchError((_) {});
           }
         } catch (e) {
           print('Proxy error: $e');
@@ -465,6 +471,9 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
 
   /// Exposes the proxy server to other parts of the app (like the Video Player)
   String getProxyUrl(String targetUrl) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      return targetUrl; // Direct URL on mobile avoids loopback proxy socket aborts!
+    }
     if (_proxyServer == null) return targetUrl;
     return 'http://127.0.0.1:${_proxyServer!.port}/stream?url=${Uri.encodeComponent(targetUrl)}';
   }
@@ -588,6 +597,9 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
           
           final audioSource = AudioSource.uri(
             Uri.parse(finalUrl),
+            headers: const {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
             tag: _queueData[i]['id'],
           );
           
@@ -726,9 +738,11 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         _currentTargetUrl = streamUrl;
         final proxyUrl = getProxyUrl(streamUrl);
         
-        // Explicitly stop the previous track to reset the WMF state machine on Windows
-        // WARNING: Do not call stop() if the player is idle, or WMF will break and ignore the next play()!
-        if ((Platform.isWindows || Platform.isLinux) && _player.processingState != ProcessingState.idle) {
+        // Reset ExoPlayer / WMF state machine if previous track completed or is changing
+        if (_player.processingState == ProcessingState.completed) {
+          await _player.seek(Duration.zero);
+          await _player.stop();
+        } else if ((Platform.isWindows || Platform.isLinux) && _player.processingState != ProcessingState.idle) {
           await _player.stop();
         }
         
@@ -745,14 +759,26 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
           mediaItem.add(item);
         }
         
-        final finalUrl = getProxyUrl(streamUrl);
-        
-        final audioSource = AudioSource.uri(
-          Uri.parse(finalUrl),
-          tag: track['id'],
-        );
-        
-        await _player.setAudioSource(audioSource).timeout(const Duration(seconds: 15));
+        try {
+          final finalUrl = getProxyUrl(streamUrl);
+          
+          final audioSource = AudioSource.uri(
+            Uri.parse(finalUrl),
+            headers: const {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            tag: track['id'],
+          );
+          
+          await _player.setAudioSource(audioSource).timeout(const Duration(seconds: 15));
+        } catch (e) {
+          print('Failed to set audio source with cached URL, re-fetching fresh URL: $e');
+          if (requestId != _currentRequestId) return;
+          // Clear bad cached URL and re-fetch fresh stream URL!
+          _queueData[_currentIndex].remove('streamUrl');
+          await playTrack(track);
+          return;
+        }
         
         // Check AGAIN after setAudioSource because setting the source takes time 
         // and the user might have rapidly clicked Next during the network buffering!
@@ -871,14 +897,15 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         _secondaryPlayer.stop(); // Stop old active player
         await _secondaryPlayer.setVolume(1.0); // Restore its volume too for next use
         
-        _activePlayer.play(); // Play instantly!
         _currentIndex++;
         _hasPlayedCurrentTrack = false;
         _preloadedTrackId = null;
         _isLoading = false;
         
-        // Re-register listeners on the new active player (cancels old subs automatically)
+        // Re-register listeners on the new active player BEFORE starting playback
         _setupListeners(_activePlayer, isActive: true);
+        
+        await _activePlayer.play(); // Play instantly!
         
         HistoryService().addTrack(nextTrack);
         

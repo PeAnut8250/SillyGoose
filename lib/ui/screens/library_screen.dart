@@ -18,7 +18,7 @@ class LibraryScreen extends StatelessWidget {
         child: NotificationListener<ScrollNotification>(
           onNotification: (scrollInfo) {
             ScrollService().setScrollOffset(scrollInfo.metrics.pixels);
-            if (scrollInfo is UserScrollNotification) {
+            if (scrollInfo is UserScrollNotification && scrollInfo.metrics.axis == Axis.vertical) {
               if (scrollInfo.direction == ScrollDirection.reverse) {
                 ScrollService().setScrolledDown(true);
               } else if (scrollInfo.direction == ScrollDirection.forward) {
