@@ -244,7 +244,7 @@ class YoutubeService {
 
       dynamic searchResults;
       try {
-        searchResults = await _yt.search.searchContent(searchQuery, filter: ytFilter).timeout(const Duration(seconds: 10));
+        searchResults = await _yt.search.searchContent(searchQuery, filter: ytFilter).timeout(const Duration(seconds: 4));
       } catch (e) {
         print('Warning: searchContent failed (YouTube layout change), using fallback search. $e');
         
@@ -252,25 +252,60 @@ class YoutubeService {
             ? '$searchQuery full album' 
             : searchQuery;
             
-        final fallbackResults = await _yt.search.search(fallbackQuery).timeout(const Duration(seconds: 10));
+        List<Video> fallbackResults = [];
+        try {
+          fallbackResults = await _yt.search.search(fallbackQuery).timeout(const Duration(seconds: 4)).catchError((_) => <Video>[]);
+        } catch (_) {}
         
-        // Filter out non-music content (podcasts, comedy shows)
+        if (fallbackResults.isEmpty) {
+          return [];
+        }
+        
+        // Filter out non-music content (podcasts, comedy shows, live streams)
         final filteredResults = fallbackResults.where((video) {
           if (!isSongSearch) return true;
           
+          // Skip live stream videos which cause YouTubeExplode duration parse errors!
+          if (video.isLive) return false;
+          
           final titleLower = video.title.toLowerCase();
+          final authorLower = video.author.toLowerCase();
           if (titleLower.contains('podcast') || 
               titleLower.contains('interview') || 
               titleLower.contains('episode') ||
               titleLower.contains('latent') ||
+              titleLower.contains('season') ||
+              titleLower.contains('s01') || titleLower.contains('s02') || titleLower.contains('s03') ||
+              titleLower.contains('roast') ||
+              titleLower.contains('uncensored') ||
+              titleLower.contains('standup') ||
+              titleLower.contains('stand-up') ||
               titleLower.contains('vlog') ||
-              titleLower.contains('stand up') ||
-              titleLower.contains('comedy')) {
+              titleLower.contains('comedy') ||
+              titleLower.contains('reaction') ||
+              titleLower.contains('trailer') ||
+              titleLower.contains('jukebox') ||
+              titleLower.contains('all songs') ||
+              titleLower.contains('all song') ||
+              titleLower.contains('full album') ||
+              titleLower.contains('non-stop') ||
+              titleLower.contains('non stop') ||
+              titleLower.contains('nonstop') ||
+              titleLower.contains('compilation') ||
+              titleLower.contains('full songs') ||
+              titleLower.contains('greatest hits') ||
+              titleLower.contains('song collection') ||
+              titleLower.contains('songs collection') ||
+              titleLower.contains('mashup') ||
+              authorLower.contains('comedy') ||
+              authorLower.contains('podcast') ||
+              authorLower.contains('samay') ||
+              authorLower.contains('tanmay')) {
             return false;
           }
           
-          // Music tracks are rarely over 15 minutes
-          if (video.duration != null && video.duration!.inMinutes > 15) {
+          // Single music tracks are rarely over 7 minutes
+          if (video.duration != null && video.duration!.inMinutes >= 7) {
             return false;
           }
           
@@ -318,10 +353,38 @@ class YoutubeService {
         if (item is SearchVideo) {
           if (isSongSearch) {
             final titleLower = item.title.toLowerCase();
+            final authorLower = item.author.toLowerCase();
             if (titleLower.contains('podcast') || 
                 titleLower.contains('interview') || 
                 titleLower.contains('episode') ||
-                titleLower.contains('vlog')) {
+                titleLower.contains('latent') ||
+                titleLower.contains('season') ||
+                titleLower.contains('s01') || titleLower.contains('s02') || titleLower.contains('s03') ||
+                titleLower.contains('roast') ||
+                titleLower.contains('uncensored') ||
+                titleLower.contains('standup') ||
+                titleLower.contains('stand-up') ||
+                titleLower.contains('vlog') ||
+                titleLower.contains('comedy') ||
+                titleLower.contains('reaction') ||
+                titleLower.contains('trailer') ||
+                titleLower.contains('jukebox') ||
+                titleLower.contains('all songs') ||
+                titleLower.contains('all song') ||
+                titleLower.contains('full album') ||
+                titleLower.contains('non-stop') ||
+                titleLower.contains('non stop') ||
+                titleLower.contains('nonstop') ||
+                titleLower.contains('compilation') ||
+                titleLower.contains('full songs') ||
+                titleLower.contains('greatest hits') ||
+                titleLower.contains('song collection') ||
+                titleLower.contains('songs collection') ||
+                titleLower.contains('mashup') ||
+                authorLower.contains('comedy') ||
+                authorLower.contains('podcast') ||
+                authorLower.contains('samay') ||
+                authorLower.contains('tanmay')) {
               return null;
             }
             
@@ -330,7 +393,7 @@ class YoutubeService {
               if (parts.length >= 3) return null; // Over an hour
               if (parts.length == 2) {
                 final min = int.tryParse(parts[0]) ?? 0;
-                if (min > 15) return null; // Over 15 minutes
+                if (min >= 7) return null; // Over 7 minutes (compilations/shows)
               }
             }
           }
@@ -405,24 +468,49 @@ class YoutubeService {
       }
       
       List<Map<String, String>> results = relatedVideos.where((v) {
-        // Filter out long mixes/podcasts (over 8 minutes)
-        if (v.duration != null && v.duration!.inMinutes > 8) return false;
+        // Filter out long mixes/jukeboxes/podcasts (over 7 minutes)
+        if (v.duration != null && v.duration!.inMinutes >= 7) return false;
         
-        // Aggressive Music Filter: throw away anything that looks like a vlog, podcast, or comedy
+        // Aggressive Music Filter: throw away anything that looks like a vlog, podcast, comedy, or jukebox compilation
         final title = v.title.toLowerCase();
         final author = v.author.toLowerCase();
         
+        if (title.contains('jukebox') ||
+            title.contains('all songs') ||
+            title.contains('all song') ||
+            title.contains('full album') ||
+            title.contains('non-stop') ||
+            title.contains('non stop') ||
+            title.contains('nonstop') ||
+            title.contains('compilation') ||
+            title.contains('full songs') ||
+            title.contains('greatest hits') ||
+            title.contains('song collection') ||
+            title.contains('songs collection') ||
+            title.contains('mashup')) {
+          return false;
+        }
+
         // Explicitly exclude non-music genres even if they have a hyphen
         if (title.contains('comedy') || 
             title.contains('stand up') || 
+            title.contains('standup') ||
+            title.contains('stand-up') ||
             title.contains('podcast') || 
             title.contains('interview') || 
             title.contains('vlog') ||
             title.contains('episode') ||
+            title.contains('latent') ||
+            title.contains('season') ||
+            title.contains('s01') || title.contains('s02') || title.contains('s03') ||
+            title.contains('roast') ||
+            title.contains('uncensored') ||
             title.contains('reaction') ||
             title.contains('trailer') ||
             author.contains('comedy') ||
-            author.contains('podcast')) {
+            author.contains('podcast') ||
+            author.contains('samay') ||
+            author.contains('tanmay')) {
           return false;
         }
         
@@ -475,9 +563,15 @@ class YoutubeService {
 
       // Fallback: If YouTube hides related videos, or crashed, just queue up top songs from the same artist!
       if (results.isEmpty) {
-        results = await searchSongs(video.author);
-        // Remove the current video from the fallback results
-        results.removeWhere((track) => track['id'] == videoId);
+        final authorLower = video.author.toLowerCase();
+        if (!authorLower.contains('samay') && 
+            !authorLower.contains('tanmay') && 
+            !authorLower.contains('comedy') && 
+            !authorLower.contains('podcast')) {
+          results = await searchSongs(video.author);
+          // Remove the current video from the fallback results
+          results.removeWhere((track) => track['id'] == videoId);
+        }
       }
 
       return results;
@@ -602,11 +696,76 @@ class YoutubeService {
   /// Gets all tracks from a specific playlist or album ID.
   Future<List<Map<String, String>>> getPlaylistTracks(String playlistId, {String? fallbackQuery}) async {
     try {
-      final videos = await _yt.playlists.getVideos(playlistId).toList();
+      // Clean query parameters like ?si=... if passed directly as ID
+      String cleanId = playlistId.split('?').first.split('&').first.trim();
+      if (cleanId.contains('list=')) {
+        final reg = RegExp(r'[?&]list=([^&]+)');
+        final match = reg.firstMatch(playlistId);
+        if (match != null && match.group(1) != null) {
+          cleanId = match.group(1)!;
+        }
+      }
+
+      final videos = await _yt.playlists.getVideos(cleanId).toList().timeout(const Duration(seconds: 8)).catchError((_) => <Video>[]);
       
-      // WORKAROUND: If youtube_explode_dart fails to parse the playlist (returns 0 videos),
-      // we fallback to searching the playlist title and returning those songs!
-      if (videos.isEmpty && fallbackQuery != null) {
+      if (videos.isNotEmpty) {
+        return videos.map((video) {
+          return {
+            'id': video.id.value,
+            'title': video.title,
+            'subtitle': video.author,
+            'imageUrl': video.thumbnails.highResUrl,
+            'type': 'song',
+            'duration': video.duration != null ? '${video.duration!.inMinutes}:${(video.duration!.inSeconds % 60).toString().padLeft(2, '0')}' : '',
+          };
+        }).toList();
+      }
+
+      // WORKAROUND: If youtube_explode_dart fails or 404s, use Innertube browse API directly!
+      final browseRes = await _innertubeRequest('browse', {'browseId': cleanId.startsWith('VL') ? cleanId : 'VL$cleanId'});
+      final List<Map<String, String>> innertubeTracks = [];
+
+      final contents = _a(
+        _o(_o(_o(_a(_o(_o(browseRes, 'contents'), 'twoColumnBrowseResultsRenderer'), 'tabs')?.first, 'tabRenderer'), 'content'), 'sectionListRenderer'),
+        'contents'
+      );
+
+      if (contents != null) {
+        for (var section in contents) {
+          final items = _a(_o(_o(section, 'musicPlaylistShelfRenderer'), 'contents') ?? _o(_o(section, 'musicShelfRenderer'), 'contents'), '');
+          if (items != null) {
+            for (var item in items) {
+              final itemRenderer = _o(item, 'musicResponsiveListItemRenderer');
+              if (itemRenderer != null) {
+                final videoId = _s(_o(_o(_o(itemRenderer, 'playlistItemData'), 'navigationEndpoint'), 'watchEndpoint'), 'videoId');
+                final flexColumns = _a(itemRenderer, 'flexColumns');
+                String title = '';
+                String artist = '';
+                if (flexColumns != null && flexColumns.isNotEmpty) {
+                  title = _runs(_o(flexColumns[0], 'musicResponsiveListItemFlexColumnRenderer'));
+                  if (flexColumns.length > 1) {
+                    artist = _runs(_o(flexColumns[1], 'musicResponsiveListItemFlexColumnRenderer'));
+                  }
+                }
+                if (videoId != null && videoId.isNotEmpty) {
+                  innertubeTracks.add({
+                    'id': videoId,
+                    'title': title.isNotEmpty ? title : 'Track',
+                    'subtitle': artist.isNotEmpty ? artist : 'Unknown Artist',
+                    'imageUrl': 'https://i.ytimg.com/vi/$videoId/maxresdefault.jpg',
+                    'type': 'song',
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (innertubeTracks.isNotEmpty) return innertubeTracks;
+
+      // WORKAROUND 2: Fallback to search query
+      if (fallbackQuery != null) {
         final fallbackVideos = await _yt.search.search(fallbackQuery);
         return fallbackVideos.take(30).map((video) {
           return {
@@ -619,20 +778,210 @@ class YoutubeService {
           };
         }).toList();
       }
-      
-      return videos.map((video) {
-        return {
-          'id': video.id.value,
-          'title': video.title,
-          'subtitle': video.author,
-          'imageUrl': video.thumbnails.highResUrl,
-          'type': 'song',
-          'duration': video.duration != null ? '${video.duration!.inMinutes}:${(video.duration!.inSeconds % 60).toString().padLeft(2, '0')}' : '',
-        };
-      }).toList();
+
+      return [];
     } catch (e) {
       print('Error getting playlist tracks: $e');
       return [];
+    }
+  }
+
+  /// Imports a YouTube or Spotify playlist/album returning metadata and tracks
+  Future<Map<String, dynamic>> importPlaylistFromUrl(String urlOrId) async {
+    try {
+      String cleanInput = urlOrId.trim();
+
+      String targetUrl = cleanInput;
+      if (targetUrl.contains('src="')) {
+        final srcMatch = RegExp(r'src="([^"]+)"').firstMatch(targetUrl);
+        if (srcMatch != null) {
+          targetUrl = srcMatch.group(1) ?? targetUrl;
+        }
+      }
+
+      String albumTitle = '';
+      String albumCoverUrl = '';
+
+      if (targetUrl.contains('spotify.com') || targetUrl.contains('spotify:')) {
+        String spotifyId = '';
+        String mediaType = 'playlist';
+        if (targetUrl.contains('/album/')) mediaType = 'album';
+        if (targetUrl.contains('/track/')) mediaType = 'track';
+
+        final reg = RegExp(r'(?:playlist|album|track)[/:]([a-zA-Z0-9]+)');
+        final match = reg.firstMatch(targetUrl);
+        if (match != null && match.group(1) != null) {
+          spotifyId = match.group(1)!;
+        }
+
+        if (spotifyId.isNotEmpty) {
+          List<Map<String, String>> extractedTracks = [];
+
+          String querySuffix = '';
+          if (targetUrl.contains('?')) {
+            querySuffix = '?' + targetUrl.split('?').sublist(1).join('?');
+          }
+
+          final embedUrl = 'https://open.spotify.com/embed/$mediaType/$spotifyId$querySuffix';
+          final res = await http.get(
+            Uri.parse(embedUrl),
+            headers: {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'},
+          ).timeout(const Duration(seconds: 8)).catchError((_) => http.Response('', 400));
+
+          if (res.statusCode == 200) {
+            final html = res.body;
+
+            // Extract Title & Cover from Meta tags
+            final titleMatch = RegExp(r'<meta [^>]*property="og:title" [^>]*content="([^"]+)"').firstMatch(html) ??
+                               RegExp(r'<title>(.*?)</title>').firstMatch(html);
+            if (titleMatch != null) {
+              albumTitle = titleMatch.group(1)?.replaceAll(' - album by | Spotify', '').replaceAll(' | Spotify', '').replaceAll(' - Playlist by | Spotify', '').trim() ?? '';
+            }
+
+            final imgMatch = RegExp(r'<meta [^>]*property="og:image" [^>]*content="([^"]+)"').firstMatch(html);
+            if (imgMatch != null) {
+              albumCoverUrl = imgMatch.group(1) ?? '';
+            }
+
+            final resourceMatch = RegExp(r'<script [^>]*id="(?:resource|__NEXT_DATA__)"[^>]*>(.*?)</script>', dotAll: true).firstMatch(html);
+            if (resourceMatch != null) {
+              try {
+                final jsonStr = resourceMatch.group(1);
+                if (jsonStr != null) {
+                  final data = jsonDecode(jsonStr);
+                  
+                  final entity = data['props']?['pageProps']?['state']?['data']?['entity'];
+                  if (entity != null) {
+                    if (albumTitle.isEmpty || albumTitle.startsWith('http')) {
+                      albumTitle = entity['title']?.toString() ?? entity['name']?.toString() ?? '';
+                    }
+                    if (albumCoverUrl.isEmpty) {
+                      final coverSources = entity['coverArt']?['sources'] as List<dynamic>? ??
+                                          entity['visuals']?['avatarImage']?['sources'] as List<dynamic>?;
+                      if (coverSources != null && coverSources.isNotEmpty) {
+                        albumCoverUrl = coverSources.first['url']?.toString() ?? '';
+                      }
+                    }
+                  }
+
+                  final trackList = (entity?['trackList'] ?? entity?['tracks']?['items']) as List<dynamic>?;
+                  
+                  if (trackList != null && trackList.isNotEmpty) {
+                    for (var item in trackList) {
+                      final title = item['title']?.toString() ?? item['name']?.toString() ?? item['track']?['name']?.toString() ?? '';
+                      final subtitle = item['subtitle']?.toString() ?? item['artist']?.toString() ?? '';
+                      
+                      String artistName = subtitle;
+                      if (artistName.isEmpty && item['track']?['artists'] is List) {
+                        artistName = (item['track']['artists'] as List).map((a) => a['name']).join(' ');
+                      }
+                      
+                      if (title.isNotEmpty) {
+                        extractedTracks.add({'title': title, 'artist': artistName});
+                      }
+                    }
+                  } else {
+                    final tracksList = (data['tracks']?['items'] ?? data['props']?['pageProps']?['state']?['data']?['tracks']?['items']) as List<dynamic>?;
+                    if (tracksList != null) {
+                      for (var item in tracksList) {
+                        final track = item['track'] ?? item;
+                        final name = track['name']?.toString() ?? '';
+                        final artistsList = track['artists'] as List<dynamic>?;
+                        final artistName = (artistsList != null && artistsList.isNotEmpty)
+                            ? artistsList.map((a) => a['name']).join(' ')
+                            : '';
+                        if (name.isNotEmpty) {
+                          extractedTracks.add({'title': name, 'artist': artistName});
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+
+            if (extractedTracks.isEmpty) {
+              final descMatch = RegExp(r'<meta property="og:description" content="(.*?)"').firstMatch(html);
+              if (descMatch != null) {
+                final desc = descMatch.group(1) ?? '';
+                final items = desc.split(RegExp(r',|\u00b7|\u2022| - '));
+                for (var item in items) {
+                  final cleaned = item.replaceAll(RegExp(r'Listened|Listen on Spotify|songs|Playlist|Album', caseSensitive: false), '').trim();
+                  if (cleaned.length > 2 && !cleaned.contains('http')) {
+                    extractedTracks.add({'title': cleaned, 'artist': ''});
+                  }
+                }
+              }
+            }
+          }
+
+          if (extractedTracks.isEmpty) return {'title': albumTitle, 'coverUrl': albumCoverUrl, 'tracks': <Map<String, String>>[]};
+
+          // Batch search queries concurrently in chunks of 5 (Process ALL tracks!)
+          List<Map<String, String>> imported = [];
+          
+          for (int i = 0; i < extractedTracks.length; i += 5) {
+            final chunk = extractedTracks.sublist(i, (i + 5 > extractedTracks.length) ? extractedTracks.length : i + 5);
+            final searchFutures = chunk.map((trackInfo) async {
+              final q = '${trackInfo['title']} ${trackInfo['artist']}'.trim();
+              try {
+                final results = await searchSongs(q).timeout(const Duration(seconds: 4), onTimeout: () => <Map<String, String>>[]);
+                if (results.isNotEmpty) {
+                  final res = Map<String, String>.from(results.first);
+                  if (albumCoverUrl.isNotEmpty && (res['imageUrl'] == null || res['imageUrl']!.isEmpty || res['imageUrl']!.contains('maxresdefault'))) {
+                    res['imageUrl'] = albumCoverUrl;
+                  }
+                  return res;
+                }
+              } catch (_) {}
+              
+              return <String, String>{
+                'id': 'search_${DateTime.now().microsecondsSinceEpoch}_$i',
+                'title': trackInfo['title'] ?? 'Unknown Track',
+                'subtitle': trackInfo['artist'] ?? '',
+                'imageUrl': albumCoverUrl.isNotEmpty ? albumCoverUrl : 'https://i.scdn.co/image/ab67616d0000b27341ad6e64c3983226a273c52e',
+                'type': 'song',
+              };
+            });
+
+            final chunkResults = await Future.wait(searchFutures);
+            imported.addAll(chunkResults);
+          }
+
+          return {
+            'title': albumTitle.isNotEmpty ? albumTitle : 'Imported Spotify Mix',
+            'coverUrl': albumCoverUrl,
+            'tracks': imported,
+          };
+        }
+      }
+
+      // Handle YouTube links
+      String cleanId = targetUrl;
+      if (cleanId.contains('list=')) {
+        final match = RegExp(r'[?&]list=([^&]+)').firstMatch(cleanId);
+        if (match != null && match.group(1) != null) {
+          cleanId = match.group(1)!;
+        }
+      } else if (cleanId.startsWith('http://') || cleanId.startsWith('https://')) {
+        final uri = Uri.tryParse(cleanId);
+        if (uri != null && uri.queryParameters.containsKey('list')) {
+          cleanId = uri.queryParameters['list']!;
+        } else if (uri != null && uri.pathSegments.isNotEmpty) {
+          cleanId = uri.pathSegments.last;
+        }
+      }
+      
+      cleanId = cleanId.split('?').first.split('&').first.trim();
+      final ytTracks = await getPlaylistTracks(cleanId);
+      return {
+        'title': 'Imported YouTube Playlist',
+        'coverUrl': ytTracks.isNotEmpty ? (ytTracks.first['imageUrl'] ?? '') : '',
+        'tracks': ytTracks,
+      };
+    } catch (e) {
+      print('Error importing playlist: $e');
+      return {'title': '', 'coverUrl': '', 'tracks': <Map<String, String>>[]};
     }
   }
 

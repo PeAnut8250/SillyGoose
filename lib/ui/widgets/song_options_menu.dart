@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import '../../data/api/audio_service.dart';
-import '../../data/api/youtube_service.dart';
 import '../../data/history_service.dart';
+import '../../data/download_service.dart';
 import '../screens/artist_screen.dart';
 import '../components/app_toast.dart';
 
@@ -115,9 +114,39 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                     );
                   }
                 ),
-                _buildMenuItem(context, Icons.download_rounded, 'Download', () {
-                  Navigator.pop(context);
-                }),
+                Builder(
+                  builder: (context) {
+                    final trackId = track['id'] ?? '';
+                    final isDownloaded = DownloadService().isDownloaded(trackId);
+                    final downloadState = DownloadService().getDownloadState(trackId);
+
+                    String label = 'Download';
+                    IconData icon = Icons.download_rounded;
+
+                    if (isDownloaded) {
+                      label = 'Remove Download';
+                      icon = Icons.delete_outline_rounded;
+                    } else if (downloadState?.isDownloading == true) {
+                      label = 'Downloading (${(downloadState!.progress * 100).toInt()}%)';
+                      icon = Icons.downloading_rounded;
+                    }
+
+                    return _buildMenuItem(context, icon, label, () {
+                      Navigator.pop(context);
+                      if (isDownloaded) {
+                        DownloadService().deleteDownload(trackId);
+                        showAppToast(parentContext, 'Removed download: ${track['title']}');
+                      } else {
+                        showAppToast(parentContext, 'Downloading ${track['title']}...');
+                        DownloadService().downloadTrack(
+                          track,
+                          onComplete: (msg) => showAppToast(parentContext, msg),
+                          onError: (err) => showAppToast(parentContext, err),
+                        );
+                      }
+                    });
+                  }
+                ),
                 _buildMenuItem(context, Icons.playlist_play_rounded, 'Play next', () {
                   Navigator.pop(context);
                   AudioService().addTrackNext(track);
@@ -128,11 +157,10 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                   AudioService().addTrackToQueue(track);
                   showAppToast(parentContext, 'Added to queue: ${track['title']}');
                 }),
-                if (HistoryService().playlists.isNotEmpty)
-                  _buildMenuItem(context, Icons.playlist_add_rounded, 'Add to playlist', () {
-                    Navigator.pop(context);
-                    _showAddToPlaylistModal(parentContext, track);
-                  }),
+                _buildMenuItem(context, Icons.playlist_add_rounded, 'Add to playlist', () {
+                  Navigator.pop(context);
+                  showAddToPlaylistModal(parentContext, track);
+                }),
                 _buildMenuItem(context, Icons.album_rounded, 'Open album', () {
                   Navigator.pop(context);
                 }),
@@ -191,7 +219,12 @@ Widget _buildMenuItem(BuildContext context, IconData icon, String title, VoidCal
   );
 }
 
-void _showAddToPlaylistModal(BuildContext context, Map<String, String> track) {
+void showAddToPlaylistModal(BuildContext context, Map<String, String> track) {
+  if (HistoryService().playlists.isEmpty) {
+    showAppToast(context, 'No custom playlists yet. Create one in Library!');
+    return;
+  }
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,

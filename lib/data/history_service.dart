@@ -195,12 +195,12 @@ class HistoryService extends ChangeNotifier {
       _playlists = playlistsJsonList.map((jsonStr) {
         final decoded = json.decode(jsonStr) as Map<String, dynamic>;
         final tracksList = (decoded['tracks'] as List?)?.map((t) => Map<String, String>.from(t as Map)).toList() ?? [];
-        return {
+        return <String, dynamic>{
           'id': decoded['id'] as String,
           'title': decoded['title'] as String,
           'tracks': tracksList,
         };
-      }).toList();
+      }).toList().cast<Map<String, dynamic>>();
     }
 
     final statsJsonStr = _prefs.getString('listening_stats');
@@ -324,12 +324,14 @@ class HistoryService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void createPlaylist(String title) {
+  void createPlaylist(String title, {String? coverUrl}) {
     if (!_initialized) return;
     final newId = 'custom_${DateTime.now().millisecondsSinceEpoch}';
-    _playlists.add({
+    _playlists = List<Map<String, dynamic>>.from(_playlists);
+    _playlists.add(<String, dynamic>{
       'id': newId,
       'title': title,
+      if (coverUrl != null && coverUrl.isNotEmpty) 'coverUrl': coverUrl,
       'tracks': <Map<String, String>>[],
     });
     _savePlaylists();
@@ -345,13 +347,19 @@ class HistoryService extends ChangeNotifier {
 
   void addTrackToPlaylist(String playlistId, Map<String, String> track) {
     if (!_initialized) return;
-    final playlist = _playlists.firstWhere((p) => p['id'] == playlistId, orElse: () => <String, dynamic>{});
-    if (playlist.isEmpty) return;
+    final index = _playlists.indexWhere((p) => p['id'] == playlistId);
+    if (index == -1) return;
     
-    final tracks = playlist['tracks'] as List<Map<String, String>>;
+    final playlist = _playlists[index];
+    final rawTracks = playlist['tracks'];
+    List<Map<String, String>> tracksList = [];
+    if (rawTracks is List) {
+      tracksList = rawTracks.map((t) => Map<String, String>.from(t as Map)).toList();
+    }
     final cleanTrack = _sanitizeTrack(track);
-    if (!tracks.any((t) => t['id'] == cleanTrack['id'])) {
-      tracks.add(cleanTrack);
+    if (!tracksList.any((t) => t['id'] == cleanTrack['id'])) {
+      tracksList.add(cleanTrack);
+      playlist['tracks'] = tracksList;
       _savePlaylists();
       notifyListeners();
     }
@@ -359,11 +367,17 @@ class HistoryService extends ChangeNotifier {
 
   void removeTrackFromPlaylist(String playlistId, String trackId) {
     if (!_initialized) return;
-    final playlist = _playlists.firstWhere((p) => p['id'] == playlistId, orElse: () => <String, dynamic>{});
-    if (playlist.isEmpty) return;
+    final index = _playlists.indexWhere((p) => p['id'] == playlistId);
+    if (index == -1) return;
 
-    final tracks = playlist['tracks'] as List<Map<String, String>>;
-    tracks.removeWhere((t) => t['id'] == trackId);
+    final playlist = _playlists[index];
+    final rawTracks = playlist['tracks'];
+    List<Map<String, String>> tracksList = [];
+    if (rawTracks is List) {
+      tracksList = rawTracks.map((t) => Map<String, String>.from(t as Map)).toList();
+    }
+    tracksList.removeWhere((t) => t['id'] == trackId);
+    playlist['tracks'] = tracksList;
     _savePlaylists();
     notifyListeners();
   }

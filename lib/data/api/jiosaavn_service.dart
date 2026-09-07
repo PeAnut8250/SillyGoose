@@ -67,7 +67,7 @@ class JioSaavnService {
     return SaavnStream(newUrl, chosen);
   }
 
-  Future<SaavnStream?> resolveTopStream(String title, String artist) async {
+  Future<SaavnStream?> resolveTopStream(String title, String artist, {bool forceHighestQuality = false}) async {
     try {
       // Clean up the title aggressively
       String cleanTitle = title.replaceAll(RegExp(r'\s*\|.*?$'), '')
@@ -166,6 +166,10 @@ class JioSaavnService {
 
       final has320 = moreInfo['320kbps']?.toString().toLowerCase() == 'true';
       
+      if (forceHighestQuality) {
+        return _bestStream(encryptedUrl, has320, 320);
+      }
+
       // Determine target quality from settings based on current network
       final connectivityResult = await Connectivity()
           .checkConnectivity()

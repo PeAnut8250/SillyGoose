@@ -72,118 +72,147 @@ class _AudioDeviceDropdownState extends State<AudioDeviceDropdown> {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: LiquidGlass(
-              forceOpaque: !SettingsService().liquidGlass,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 400),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
-                ),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: LiquidGlass(
+                  forceOpaque: !SettingsService().liquidGlass,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                    ),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Select Audio Output',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Select Audio Output',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (devices.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24.0),
+                            child: Center(
+                              child: Text(
+                                'No audio devices found',
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                              ),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: () {
+                                  final Map<AudioSourceType, int> typeCounts = {};
+                                  for (var d in devices) {
+                                    typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1;
+                                  }
+                                  final Map<AudioSourceType, int> typeIndex = {};
+
+                                  return devices.map((device) {
+                                    final isSelected = currentDevice != null &&
+                                        (currentDevice!.id == device.id ||
+                                         (currentDevice!.type == device.type && (device.type == AudioSourceType.builtinSpeaker || device.type == AudioSourceType.builtinReceiver)));
+                                    final iconData = _getIconForDeviceType(device.type);
+                                    
+                                    String name = _getNameForDevice(device);
+                                    if ((typeCounts[device.type] ?? 0) > 1) {
+                                      typeIndex[device.type] = (typeIndex[device.type] ?? 0) + 1;
+                                      name = '$name ${typeIndex[device.type]}';
+                                    }
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Colors.white.withValues(alpha: 0.15)
+                                            : Colors.white.withValues(alpha: 0.05),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Colors.white.withValues(alpha: 0.3)
+                                              : Colors.transparent,
+                                        ),
+                                      ),
+                                      child: ListTile(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        leading: Icon(iconData, color: isSelected ? Colors.white : Colors.white70),
+                                        title: Text(
+                                          name,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        trailing: isSelected
+                                            ? const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20)
+                                            : null,
+                                        onTap: () async {
+                                          try {
+                                            String targetId = device.id;
+                                            if (device.type == AudioSourceType.builtinSpeaker) {
+                                              targetId = AudioDeviceIds.builtinSpeaker;
+                                            } else if (device.type == AudioSourceType.builtinReceiver) {
+                                              targetId = AudioDeviceIds.builtinReceiver;
+                                            }
+                                            
+                                            await AudioRouterPlatform.instance.setAudioDevice(targetId);
+                                            final updatedDevice = await AudioRouterPlatform.instance.getCurrentDevice();
+                                            setDialogState(() {
+                                              currentDevice = updatedDevice ?? device;
+                                            });
+
+                                            if (context.mounted) {
+                                              showAppToast(context, 'Audio output set to $name');
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Error setting audio device: $e');
+                                            if (context.mounted) {
+                                              showAppToast(context, 'Failed to switch to $name');
+                                            }
+                                          }
+                                        },
+                                      ),
+                                    );
+                                  }).toList();
+                                }(),
+                              ),
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                          onPressed: () => Navigator.pop(context),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    if (devices.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24.0),
-                        child: Center(
-                          child: Text(
-                            'No audio devices found',
-                            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: devices.map((device) {
-                              final isSelected = currentDevice?.id == device.id ||
-                                  (currentDevice != null && currentDevice.type == device.type);
-                              final iconData = _getIconForDeviceType(device.type);
-                              final name = _getNameForDevice(device);
-
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white.withOpacity(0.15)
-                                      : Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Colors.white.withOpacity(0.3)
-                                        : Colors.transparent,
-                                  ),
-                                ),
-                                child: ListTile(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  leading: Icon(iconData, color: isSelected ? Colors.white : Colors.white70),
-                                  title: Text(
-                                    name,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  trailing: isSelected
-                                      ? const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20)
-                                      : null,
-                                  onTap: () async {
-                                    Navigator.pop(context);
-                                    try {
-                                      await AudioRouterPlatform.instance.setAudioDevice(device.id);
-                                      if (context.mounted) {
-                                        showAppToast(context, 'Audio output set to $name');
-                                      }
-                                    } catch (e) {
-                                      debugPrint('Error setting audio device: $e');
-                                      if (context.mounted) {
-                                        showAppToast(context, 'Failed to switch to $name');
-                                      }
-                                    }
-                                  },
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -209,10 +238,10 @@ class _AudioDeviceDropdownState extends State<AudioDeviceDropdown> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -272,10 +301,10 @@ class _AudioDeviceDropdownState extends State<AudioDeviceDropdown> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           width: 1,
                         ),
                       ),

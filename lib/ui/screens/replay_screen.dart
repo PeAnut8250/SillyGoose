@@ -115,20 +115,10 @@ class _ReplayScreenState extends State<ReplayScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildFilterChip('This month'),
-                              _buildFilterChip('This year'),
-                              _buildFilterChip('All time'),
-                            ],
-                          ),
+                        child: _SegmentedFilterSelector(
+                          options: const ['This month', 'This year', 'All time'],
+                          selectedOption: _selectedFilter,
+                          onSelected: (val) => setState(() => _selectedFilter = val),
                         ),
                       ),
                     ),
@@ -417,28 +407,7 @@ class _ReplayScreenState extends State<ReplayScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label) {
-    final isSelected = _selectedFilter == label;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final surface = Theme.of(context).colorScheme.surface;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedFilter = label),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? onSurface : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? surface : onSurface,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildStatCard(String header, String bigText, String subText, String footer, String rightFooter, List<Color> gradient) {
     return Container(
@@ -641,6 +610,91 @@ class _ReplayScreenState extends State<ReplayScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => ReplayShareSheet(
         historyService: HistoryService(),
+      ),
+    );
+  }
+}
+
+class _SegmentedFilterSelector extends StatelessWidget {
+  final List<String> options;
+  final String selectedOption;
+  final ValueChanged<String> onSelected;
+
+  const _SegmentedFilterSelector({
+    required this.options,
+    required this.selectedOption,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedIndex = options.indexOf(selectedOption).clamp(0, options.length - 1);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final surface = Theme.of(context).colorScheme.surface;
+
+    const itemWidth = 100.0;
+    final totalWidth = itemWidth * options.length;
+
+    return Container(
+      height: 44,
+      width: totalWidth + 8,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: onSurface.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: RepaintBoundary(
+        child: Stack(
+          children: [
+            // Smooth Sliding Pill Highlight
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.fastOutSlowIn,
+              left: selectedIndex * itemWidth,
+              top: 0,
+              bottom: 0,
+              width: itemWidth,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: onSurface,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+            ),
+
+            // Options Row
+            Row(
+              children: List.generate(options.length, (index) {
+                final label = options[index];
+                final isSelected = index == selectedIndex;
+
+                return SizedBox(
+                  width: itemWidth,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (selectedOption != label) {
+                        onSelected(label);
+                      }
+                    },
+                    child: Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
+                        style: TextStyle(
+                          color: isSelected ? surface : onSurface,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                        child: Text(label),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }

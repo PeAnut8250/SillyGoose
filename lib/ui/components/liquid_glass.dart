@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../data/settings_service.dart';
 
 class LiquidGlass extends StatelessWidget {
   final Widget? child;
@@ -15,70 +16,72 @@ class LiquidGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (forceOpaque) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: borderRadius,
-          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1), width: 0.5),
-        ),
-        child: child,
-      );
-    }
+    return ListenableBuilder(
+      listenable: SettingsService(),
+      builder: (context, _) {
+        final reduceBlur = SettingsService().reduceBlur;
+        if (forceOpaque || reduceBlur) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface.withOpacity(reduceBlur ? 0.95 : 1.0),
+              borderRadius: borderRadius,
+              border: Border.all(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.12), width: 0.5),
+            ),
+            child: child,
+          );
+        }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tintColor = isDark ? Color(0xFF121212) : Color(0xFFE0E0E0);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final tintColor = isDark ? const Color(0xFF121212) : const Color(0xFFE0E0E0);
 
-    // To make it look like "liquid glass" where colors adapt to the background,
-    // we must massively boost saturation and remove the dull gray tint.
-    const double s = 4.9; // High saturation multiplier
-    final saturationMatrix = <double>[
-      0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0, 0,
-      0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0, 0,
-      0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s, 0, 0,
-      0, 0, 0, 1, 0,
-    ];
+        const double s = 4.9;
+        final saturationMatrix = <double>[
+          0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0, 0,
+          0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0, 0,
+          0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s, 0, 0,
+          0, 0, 0, 1, 0,
+        ];
 
-    final filter = ImageFilter.compose(
-      outer: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5), // Reduced blur for more transparency
-      inner: ColorFilter.matrix(saturationMatrix),
-    );
+        final filter = ImageFilter.compose(
+          outer: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
+          inner: ColorFilter.matrix(saturationMatrix),
+        );
 
-    Widget glassContent = BackdropFilter(
-      filter: filter,
-      child: Container(
-        // Extremely subtle tint to let the background shine through clearly
-        color: tintColor.withOpacity(0.25),
-        foregroundDecoration: BoxDecoration(
-          borderRadius: borderRadius,
-          // Softer specular liquid reflection gradient so it's less milky
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
-            ],
-            stops: const [0.0, 0.3, 0.7, 1.0],
+        Widget glassContent = BackdropFilter(
+          filter: filter,
+          child: Container(
+            color: tintColor.withOpacity(0.25),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: borderRadius,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+                  Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+                  Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+                  Theme.of(context).colorScheme.onSurface.withOpacity(0.10),
+                ],
+                stops: const [0.0, 0.3, 0.7, 1.0],
+              ),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: child,
           ),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.25),
-            width: 0.5,
-          ),
-        ),
-        child: child,
-      ),
+        );
+
+        if (borderRadius != null) {
+          return ClipRRect(
+            borderRadius: borderRadius!,
+            child: glassContent,
+          );
+        }
+
+        return glassContent;
+      },
     );
-
-    if (borderRadius != null) {
-      return ClipRRect(
-        borderRadius: borderRadius!,
-        child: glassContent,
-      );
-    }
-
-    return glassContent;
   }
 }

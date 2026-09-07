@@ -397,6 +397,14 @@ class _SearchScreenState extends State<SearchScreen> {
                               },
                             ),
                             IconButton(
+                              icon: const Icon(Icons.playlist_add),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              tooltip: 'Add to Playlist',
+                              onPressed: () {
+                                showAddToPlaylistModal(context, result);
+                              },
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.more_vert),
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                               onPressed: () {
@@ -412,13 +420,30 @@ class _SearchScreenState extends State<SearchScreen> {
                 if (type == 'song') {
                   return Dismissible(
                     key: ValueKey('swipe_hist_${result['id']}_$index'),
-                    direction: DismissDirection.endToStart,
+                    direction: DismissDirection.horizontal,
                     confirmDismiss: (direction) async {
-                      AudioService().addTrackToQueue(result);
-                      showAppToast(context, 'Added to queue');
+                      if (direction == DismissDirection.endToStart) {
+                        AudioService().addTrackToQueue(result);
+                        showAppToast(context, 'Added to queue: ${result['title']}');
+                      } else if (direction == DismissDirection.startToEnd) {
+                        showAddToPlaylistModal(context, result);
+                      }
                       return false;
                     },
                     background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 24),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.playlist_add, color: Colors.white, size: 22),
+                          SizedBox(width: 8),
+                          Text('Add to Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    secondaryBackground: Container(
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 24),
                       color: const Color(0xFF2C2C2E),
@@ -668,6 +693,14 @@ class _SearchScreenState extends State<SearchScreen> {
                                 ),
                         const SizedBox(width: 8),
                         IconButton(
+                          icon: const Icon(Icons.playlist_add),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          tooltip: 'Add to Playlist',
+                          onPressed: () {
+                            showAddToPlaylistModal(context, result);
+                          },
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.more_vert),
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           onPressed: () {
@@ -683,13 +716,30 @@ class _SearchScreenState extends State<SearchScreen> {
             if (type == 'song') {
               return Dismissible(
                 key: ValueKey('swipe_srch_${result['id']}_$index'),
-                direction: DismissDirection.endToStart,
+                direction: DismissDirection.horizontal,
                 confirmDismiss: (direction) async {
-                  AudioService().addTrackToQueue(result);
-                  showAppToast(context, 'Added to queue');
+                  if (direction == DismissDirection.endToStart) {
+                    AudioService().addTrackToQueue(result);
+                    showAppToast(context, 'Added to queue: ${result['title']}');
+                  } else if (direction == DismissDirection.startToEnd) {
+                    showAddToPlaylistModal(context, result);
+                  }
                   return false;
                 },
                 background: Container(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 24),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.playlist_add, color: Colors.white, size: 22),
+                      SizedBox(width: 8),
+                      Text('Add to Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                secondaryBackground: Container(
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 24),
                   color: const Color(0xFF2C2C2E),

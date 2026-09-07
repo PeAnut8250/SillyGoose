@@ -10,6 +10,7 @@ import '../../data/settings_service.dart';
 import '../../data/scroll_service.dart';
 import '../widgets/floating_search_window.dart';
 import '../../data/history_service.dart';
+import '../../data/download_service.dart';
 import '../components/app_toast.dart';
 
 class PlaylistScreen extends StatefulWidget {
@@ -48,6 +49,14 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   Future<void> _loadTracks() async {
     final id = widget.playlistData['id'] ?? '';
     
+    if (id == 'downloads') {
+      setState(() {
+        _tracks = DownloadService().downloadedTracks;
+        _isLoading = false;
+      });
+      return;
+    }
+
     if (id == 'LM') {
       setState(() {
         _tracks = HistoryService().likedSongs;
@@ -156,124 +165,212 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
           else if (_tracks.isEmpty)
             SliverFillRemaining(
               child: Center(
-                child: Text(
-                  'No tracks found.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.music_off_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No tracks found in this playlist.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if ((widget.playlistData['id'] ?? '').startsWith('custom_')) ...[
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () => _openAddSongsWindow(context),
+                        icon: const Icon(Icons.add, color: Colors.black),
+                        label: const Text('Add Songs', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             )
           else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final track = _tracks[index];
-                  
-                  Widget tile = ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        track['imageUrl']!,
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 50,
-                          height: 50,
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          child: const Icon(Icons.music_note),
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      track['title']!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    subtitle: Text(
-                      track['subtitle']!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (track['duration'] != null && track['duration']!.isNotEmpty)
-                          Text(
-                            track['duration']!,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ListenableBuilder(
+              listenable: DownloadService(),
+              builder: (context, _) {
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final track = _tracks[index];
+                      final trackId = track['id'] ?? '';
+                      final isDownloaded = DownloadService().isDownloaded(trackId);
+                      final downloadState = DownloadService().getDownloadState(trackId);
+                      final isDownloading = downloadState?.isDownloading == true;
+
+                      Widget tile = ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            track['imageUrl']!,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 50,
+                              height: 50,
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              child: const Icon(Icons.music_note),
                             ),
                           ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          onPressed: () {
-                            showSongOptionsMenu(context, track);
-                          },
                         ),
-                      ],
-                    ),
-                    onTap: () {
-                      // Overwrite the entire queue with this playlist, starting at the tapped index!
-                      AudioService().playPlaylist(_tracks, startIndex: index);
-                    },
-                  );
+                        title: Text(
+                          track['title']!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        subtitle: Text(
+                          track['subtitle']!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isDownloading)
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: downloadState?.progress,
+                                  color: Colors.white,
+                                ),
+                              )
+                            else if (isDownloaded)
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF1DB954), // Spotify green crisp check
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.check, size: 12, color: Colors.black),
+                              )
+                            else
+                              IconButton(
+                                icon: const Icon(Icons.download_for_offline_outlined, size: 20),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  DownloadService().downloadTrack(
+                                    track,
+                                    onComplete: (msg) => showAppToast(context, msg),
+                                    onError: (err) => showAppToast(context, err),
+                                  );
+                                },
+                              ),
+                            const SizedBox(width: 10),
+                            if (track['duration'] != null && track['duration']!.isNotEmpty)
+                              Text(
+                                track['duration']!,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.playlist_add),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              tooltip: 'Add to Playlist',
+                              onPressed: () {
+                                showAddToPlaylistModal(context, track);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.more_vert),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              onPressed: () {
+                                showSongOptionsMenu(context, track);
+                              },
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          // Overwrite the entire queue with this playlist, starting at the tapped index!
+                          AudioService().playPlaylist(_tracks, startIndex: index);
+                        },
+                      );
 
-                  if ((widget.playlistData['id'] ?? '').startsWith('custom_')) {
-                    return Dismissible(
-                      key: Key(track['id'] ?? index.toString()),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red.withOpacity(0.8),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      onDismissed: (direction) {
-                        HistoryService().removeTrackFromPlaylist(widget.playlistData['id']!, track['id']!);
-                        setState(() {
-                          _tracks.removeAt(index);
-                        });
-                        showAppToast(context, 'Removed ${track['title']}');
-                      },
-                      child: tile,
-                    );
-                  }
+                      if ((widget.playlistData['id'] ?? '').startsWith('custom_')) {
+                        return Dismissible(
+                          key: Key(track['id'] ?? index.toString()),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red.withValues(alpha: 0.8),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (direction) {
+                            HistoryService().removeTrackFromPlaylist(widget.playlistData['id']!, track['id']!);
+                            setState(() {
+                              _tracks.removeAt(index);
+                            });
+                            showAppToast(context, 'Removed ${track['title']}');
+                          },
+                          child: tile,
+                        );
+                      }
 
-                  return Dismissible(
-                    key: ValueKey('swipe_pl_${track['id']}_$index'),
-                    direction: DismissDirection.endToStart,
-                    confirmDismiss: (direction) async {
-                      AudioService().addTrackToQueue(track);
-                      showAppToast(context, 'Added to queue');
-                      return false;
+                      return Dismissible(
+                        key: ValueKey('swipe_pl_${track['id']}_$index'),
+                        direction: DismissDirection.horizontal,
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.endToStart) {
+                            AudioService().addTrackToQueue(track);
+                            showAppToast(context, 'Added to queue: ${track['title']}');
+                          } else if (direction == DismissDirection.startToEnd) {
+                            showAddToPlaylistModal(context, track);
+                          }
+                          return false;
+                        },
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 24),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.playlist_add, color: Colors.white, size: 22),
+                              SizedBox(width: 8),
+                              Text('Add to Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        secondaryBackground: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          color: const Color(0xFF2C2C2E),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.queue_music, color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        child: tile,
+                      );
                     },
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      color: const Color(0xFF2C2C2E),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.queue_music, color: Colors.white, size: 20),
-                          SizedBox(width: 8),
-                          Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    child: tile,
-                  );
-                },
-                childCount: _tracks.length,
-              ),
+                    childCount: _tracks.length,
+                  ),
+                );
+              },
             ),
             const SliverToBoxAdapter(
               child: SizedBox(height: 100), // padding for miniplayer
@@ -509,18 +606,108 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                     icon: const Icon(Icons.favorite_border, color: Colors.white),
                     onPressed: () {},
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.download_rounded, color: Colors.white),
-                    onPressed: () {
-                      showAppToast(context, 'Downloading playlist... (Coming soon)');
-                    },
-                  ),
+                  if ((widget.playlistData['id'] ?? '').startsWith('custom_'))
+                    IconButton(
+                      icon: const Icon(Icons.playlist_add, color: Colors.white),
+                      tooltip: 'Add Songs',
+                      onPressed: () => _openAddSongsWindow(context),
+                    ),
+                  if (widget.playlistData['id'] == 'downloads')
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.white),
+                      tooltip: 'Delete All Downloads',
+                      onPressed: _tracks.isEmpty
+                          ? null
+                          : () {
+                              _showDeleteAllDownloadsDialog(context);
+                            },
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.download_rounded, color: Colors.white),
+                      onPressed: _tracks.isEmpty
+                          ? null
+                          : () {
+                              int startedCount = 0;
+                              for (final track in _tracks) {
+                                final id = track['id'];
+                                if (id != null && !DownloadService().isDownloaded(id)) {
+                                  DownloadService().downloadTrack(track);
+                                  startedCount++;
+                                }
+                              }
+                              if (startedCount > 0) {
+                                showAppToast(context, 'Downloading $startedCount songs...');
+                              } else {
+                                showAppToast(context, 'All songs already downloaded!');
+                              }
+                            },
+                    ),
                 ],
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  void _openAddSongsWindow(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return FadeTransition(
+          opacity: animation,
+          child: FloatingSearchWindow(
+            contextName: 'Add to ${widget.playlistData['title']}',
+            onTrackTap: (track) {
+              final playlistId = widget.playlistData['id'];
+              if (playlistId != null) {
+                HistoryService().addTrackToPlaylist(playlistId, track);
+                _loadTracks();
+                showAppToast(context, 'Added ${track['title']} to playlist');
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteAllDownloadsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Delete All Downloads?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'This will remove all downloaded offline songs from your device storage.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              await DownloadService().deleteAllDownloads();
+              if (mounted) {
+                setState(() {
+                  _tracks = [];
+                });
+                showAppToast(context, 'All downloaded songs deleted');
+              }
+            },
+            child: const Text('Delete All', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }

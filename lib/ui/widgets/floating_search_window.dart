@@ -8,8 +8,9 @@ import '../components/app_toast.dart';
 
 class FloatingSearchWindow extends StatefulWidget {
   final String contextName;
+  final Function(Map<String, String>)? onTrackTap;
 
-  const FloatingSearchWindow({super.key, required this.contextName});
+  const FloatingSearchWindow({super.key, required this.contextName, this.onTrackTap});
 
   @override
   State<FloatingSearchWindow> createState() => _FloatingSearchWindowState();
@@ -165,64 +166,107 @@ class _FloatingSearchWindowState extends State<FloatingSearchWindow> {
                               itemCount: _searchResults.length,
                               itemBuilder: (context, index) {
                                 final song = _searchResults[index];
-                                return Dismissible(
-                                  key: ValueKey('swipe_q_${song['id']}_$index'),
-                                  direction: DismissDirection.endToStart,
-                                  confirmDismiss: (direction) async {
-                                    AudioService().addTrackToQueue(song);
-                                    showAppToast(context, 'Added to queue');
-                                    return false;
-                                  },
-                                  background: Container(
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 24),
-                                    color: const Color(0xFF2C2C2E),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.queue_music, color: Colors.white, size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                                      ],
-                                    ),
-                                  ),
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                    leading: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        song['imageUrl']!,
-                                        width: 48,
-                                        height: 48,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      song['title']!,
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    subtitle: Text(
-                                      song['subtitle']!,
-                                      style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.more_vert, color: Colors.white70),
-                                      onPressed: () {
-                                        showSongOptionsMenu(context, song);
-                                      },
-                                    ),
-                                    onTap: () {
-                                      // Close the search window
-                                      Navigator.pop(context);
-                                      // Play the selected song and queue the rest
-                                      AudioService().playPlaylist(_searchResults, startIndex: index);
-                                    },
-                                  ),
-                                );
+                                 return Dismissible(
+                                   key: ValueKey('swipe_q_${song['id']}_$index'),
+                                   direction: DismissDirection.horizontal,
+                                   confirmDismiss: (direction) async {
+                                     if (direction == DismissDirection.endToStart) {
+                                       AudioService().addTrackToQueue(song);
+                                       showAppToast(context, 'Added to queue: ${song['title']}');
+                                     } else if (direction == DismissDirection.startToEnd) {
+                                       if (widget.onTrackTap != null) {
+                                         widget.onTrackTap!(song);
+                                         showAppToast(context, 'Added to playlist');
+                                       } else {
+                                         showAddToPlaylistModal(context, song);
+                                       }
+                                     }
+                                     return false;
+                                   },
+                                   background: Container(
+                                     alignment: Alignment.centerLeft,
+                                     padding: const EdgeInsets.only(left: 24),
+                                     color: Theme.of(context).primaryColor.withOpacity(0.8),
+                                     child: const Row(
+                                       mainAxisSize: MainAxisSize.min,
+                                       children: [
+                                         Icon(Icons.playlist_add, color: Colors.white, size: 22),
+                                         SizedBox(width: 8),
+                                         Text('Add to Playlist', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                                       ],
+                                     ),
+                                   ),
+                                   secondaryBackground: Container(
+                                     alignment: Alignment.centerRight,
+                                     padding: const EdgeInsets.only(right: 24),
+                                     color: const Color(0xFF2C2C2E),
+                                     child: const Row(
+                                       mainAxisSize: MainAxisSize.min,
+                                       children: [
+                                         Icon(Icons.queue_music, color: Colors.white, size: 20),
+                                         SizedBox(width: 8),
+                                         Text('Add to Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                                       ],
+                                     ),
+                                   ),
+                                   child: ListTile(
+                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                     leading: ClipRRect(
+                                       borderRadius: BorderRadius.circular(8),
+                                       child: Image.network(
+                                         song['imageUrl']!,
+                                         width: 48,
+                                         height: 48,
+                                         fit: BoxFit.cover,
+                                       ),
+                                     ),
+                                     title: Text(
+                                       song['title']!,
+                                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
+                                     subtitle: Text(
+                                       song['subtitle']!,
+                                       style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
+                                     trailing: Row(
+                                       mainAxisSize: MainAxisSize.min,
+                                       children: [
+                                         IconButton(
+                                           icon: const Icon(Icons.playlist_add, color: Colors.white70),
+                                           tooltip: 'Add to Playlist',
+                                           onPressed: () {
+                                             if (widget.onTrackTap != null) {
+                                               widget.onTrackTap!(song);
+                                               showAppToast(context, 'Added to playlist');
+                                             } else {
+                                               showAddToPlaylistModal(context, song);
+                                             }
+                                           },
+                                         ),
+                                         IconButton(
+                                           icon: const Icon(Icons.more_vert, color: Colors.white70),
+                                           onPressed: () {
+                                             showSongOptionsMenu(context, song);
+                                           },
+                                         ),
+                                       ],
+                                     ),
+                                     onTap: () {
+                                       if (widget.onTrackTap != null) {
+                                         widget.onTrackTap!(song);
+                                         return;
+                                       }
+                                       // Close the search window
+                                       Navigator.pop(context);
+                                       // Play the selected song and queue the rest
+                                       AudioService().playPlaylist(_searchResults, startIndex: index);
+                                     },
+                                   ),
+                                 );
                               },
                             )
                           : _searchController.text.isNotEmpty && !_isSearching

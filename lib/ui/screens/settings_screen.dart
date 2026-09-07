@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import '../../data/settings_service.dart';
@@ -999,6 +1000,7 @@ class _SegmentedThemeSelector extends StatefulWidget {
 
 class _SegmentedThemeSelectorState extends State<_SegmentedThemeSelector> {
   late String _selectedTheme;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -1012,6 +1014,12 @@ class _SegmentedThemeSelectorState extends State<_SegmentedThemeSelector> {
     if (oldWidget.currentTheme != widget.currentTheme) {
       _selectedTheme = widget.currentTheme;
     }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -1033,61 +1041,67 @@ class _SegmentedThemeSelectorState extends State<_SegmentedThemeSelector> {
           final totalWidth = constraints.maxWidth;
           final itemWidth = totalWidth / themes.length;
 
-          return Stack(
-            children: [
-              // Smooth Sliding Pill Highlight
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                left: selectedIndex * itemWidth,
-                top: 0,
-                bottom: 0,
-                width: itemWidth,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: onSurface,
-                    borderRadius: BorderRadius.circular(100),
+          return RepaintBoundary(
+            child: Stack(
+              children: [
+                // Smooth Sliding Pill Highlight
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.fastOutSlowIn,
+                  left: selectedIndex * itemWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: itemWidth,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: onSurface,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
                   ),
                 ),
-              ),
 
-              // Theme Options Row
-              Positioned.fill(
-                child: Row(
-                  children: List.generate(themes.length, (index) {
-                    final label = themes[index];
-                    final isSelected = index == selectedIndex;
+                // Theme Options Row
+                Positioned.fill(
+                  child: Row(
+                    children: List.generate(themes.length, (index) {
+                      final label = themes[index];
+                      final isSelected = index == selectedIndex;
 
-                    return Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          if (_selectedTheme == label) return;
-                          setState(() {
-                            _selectedTheme = label;
-                          });
-                          Future.microtask(() {
-                            widget.onThemeChanged(label);
-                          });
-                        },
-                        child: Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOutCubic,
-                            style: TextStyle(
-                              color: isSelected ? surface : onSurface,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              fontSize: 13,
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (_selectedTheme == label) return;
+                            _debounceTimer?.cancel();
+                            setState(() {
+                              _selectedTheme = label;
+                            });
+                            // Delay heavy full-app theme rebuild until sliding animation finishes smoothly
+                            _debounceTimer = Timer(const Duration(milliseconds: 230), () {
+                              if (mounted) {
+                                widget.onThemeChanged(label);
+                              }
+                            });
+                          },
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              style: TextStyle(
+                                color: isSelected ? surface : onSurface,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                              child: Text(label),
                             ),
-                            child: Text(label),
                           ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

@@ -22,9 +22,11 @@ class MeshGradientBackground extends StatefulWidget {
 }
 
 class _MeshGradientBackgroundState extends State<MeshGradientBackground>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
   List<Color> _colors = _fallbackColors;
+
+  static final Map<String, List<Color>> _colorCache = {};
 
   static const List<Color> _fallbackColors = [
     Color(0xFF3A1C71),
@@ -36,6 +38,7 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: widget.driftMillis * 4),
@@ -44,6 +47,20 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
       _controller.repeat();
     }
     _extractColors();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      _controller.stop();
+    } else if (state == AppLifecycleState.resumed && widget.animated) {
+      if (!_controller.isAnimating) {
+        _controller.repeat();
+      }
+    }
   }
 
   @override
@@ -67,10 +84,16 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
       return;
     }
 
+    if (_colorCache.containsKey(widget.imageUrl)) {
+      if (mounted) setState(() => _colors = _colorCache[widget.imageUrl]!);
+      return;
+    }
+
     try {
       final palette = await PaletteGenerator.fromImageProvider(
-        NetworkImage(widget.imageUrl!),
-        maximumColorCount: 24,
+        ResizeImage(NetworkImage(widget.imageUrl!), width: 48, height: 48),
+        maximumColorCount: 8,
+        size: const Size(48, 48),
       );
 
       final swatches = palette.paletteColors.toList()
@@ -104,9 +127,12 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
         }
       }
 
+      final finalColors = extracted.take(4).toList();
+      _colorCache[widget.imageUrl!] = finalColors;
+
       if (mounted) {
         setState(() {
-          _colors = extracted.take(4).toList();
+          _colors = finalColors;
         });
       }
     } catch (e) {
@@ -124,6 +150,7 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
@@ -145,12 +172,14 @@ class _MeshGradientBackgroundState extends State<MeshGradientBackground>
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
-                  return CustomPaint(
-                    painter: MeshGradientPainter(
-                      colors: _colors,
-                      phase: _controller.value * 2 * math.pi,
+                  return RepaintBoundary(
+                    child: CustomPaint(
+                      painter: MeshGradientPainter(
+                        colors: _colors,
+                        phase: _controller.value * 2 * math.pi,
+                      ),
+                      child: Container(),
                     ),
-                    child: Container(),
                   );
                 },
               ),

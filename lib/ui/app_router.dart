@@ -6,6 +6,7 @@ import 'screens/library_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/scaffold_with_nav_bar.dart';
 import 'screens/replay_screen.dart';
+import '../data/settings_service.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -96,7 +97,11 @@ class _AnimatedBranchContainerState extends State<AnimatedBranchContainer> with 
     if (oldWidget.currentIndex != widget.currentIndex) {
       _previousIndex = oldWidget.currentIndex;
       _currentIndex = widget.currentIndex;
-      _controller.forward(from: 0.0);
+      if (SettingsService().reduceAnimation) {
+        _controller.value = 1.0;
+      } else {
+        _controller.forward(from: 0.0);
+      }
     }
   }
 
@@ -108,35 +113,46 @@ class _AnimatedBranchContainerState extends State<AnimatedBranchContainer> with 
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: List.generate(widget.children.length, (index) {
-        final bool isCurrent = index == _currentIndex;
-        final bool isPrevious = index == _previousIndex;
-        
-        if (!isCurrent && !isPrevious) {
-          return Offstage(offstage: true, child: widget.children[index]);
+    return ListenableBuilder(
+      listenable: SettingsService(),
+      builder: (context, _) {
+        if (SettingsService().reduceAnimation) {
+          return IndexedStack(
+            index: widget.currentIndex,
+            children: widget.children,
+          );
         }
+        return Stack(
+          children: List.generate(widget.children.length, (index) {
+            final bool isCurrent = index == _currentIndex;
+            final bool isPrevious = index == _previousIndex;
+            
+            if (!isCurrent && !isPrevious) {
+              return Offstage(offstage: true, child: widget.children[index]);
+            }
 
-        final bool isMovingRight = _currentIndex > _previousIndex;
-        
-        final slideIn = Tween<Offset>(
-          begin: Offset(isMovingRight ? 1.0 : -1.0, 0.0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+            final bool isMovingRight = _currentIndex > _previousIndex;
+            
+            final slideIn = Tween<Offset>(
+              begin: Offset(isMovingRight ? 1.0 : -1.0, 0.0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
-        final slideOut = Tween<Offset>(
-          begin: Offset.zero,
-          end: Offset(isMovingRight ? -1.0 : 1.0, 0.0),
-        ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+            final slideOut = Tween<Offset>(
+              begin: Offset.zero,
+              end: Offset(isMovingRight ? -1.0 : 1.0, 0.0),
+            ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
-        return Offstage(
-          offstage: false,
-          child: SlideTransition(
-            position: isCurrent ? slideIn : slideOut,
-            child: widget.children[index],
-          ),
+            return Offstage(
+              offstage: false,
+              child: SlideTransition(
+                position: isCurrent ? slideIn : slideOut,
+                child: widget.children[index],
+              ),
+            );
+          }),
         );
-      }),
+      },
     );
   }
 }

@@ -92,7 +92,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _checkVideoTrack() {
     final track = AudioService().currentTrack;
-    final wantsVideo = SettingsService().fullScreenCover && 
+    final isDynamic = SettingsService().theme == 'Dynamic' || SettingsService().theme == 'Shuffle Dynamic';
+    final wantsVideo = (SettingsService().fullScreenCover || isDynamic) && 
                        SettingsService().animatedCover && 
                        !SettingsService().reduceAnimation && 
                        track != null;
@@ -287,6 +288,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return '$minutes:$seconds';
   }
 
+  String _getHighResCoverUrl(String? url, [String? id]) {
+    if (url == null || url.isEmpty) {
+      if (id != null && id.isNotEmpty) {
+        return 'https://i.ytimg.com/vi/$id/maxresdefault.jpg';
+      }
+      return '';
+    }
+    
+    if (url.contains('ytimg.com')) {
+      return url
+          .replaceAll('/default.jpg', '/maxresdefault.jpg')
+          .replaceAll('/mqdefault.jpg', '/maxresdefault.jpg')
+          .replaceAll('/hqdefault.jpg', '/maxresdefault.jpg')
+          .replaceAll('/sddefault.jpg', '/maxresdefault.jpg')
+          .replaceAll('/hq720.jpg', '/maxresdefault.jpg');
+    }
+    
+    if (url.contains('saavncdn.com')) {
+      return url.replaceAll('-150x150.jpg', '-500x500.jpg').replaceAll('-50x50.jpg', '-500x500.jpg');
+    }
+    
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -356,7 +381,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
               
-              if (isDynamic && !SettingsService().reduceAnimation) ...[
+              if ((isDynamic || SettingsService().fullScreenCover) && !SettingsService().reduceAnimation) ...[
                 // Background (either blurred, full-screen clear, or animated video)
                 if (_videoController != null && _videoController!.value.isInitialized)
                   SizedBox.expand(
@@ -369,22 +394,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ),
                   )
-                else
-                  Transform.scale(
-                    scale: ((track['imageUrl'] ?? '').contains('ytimg.com')) ? 1.34 : 1.0,
-                    child: Image.network(
-                      track['imageUrl']!,
+                else if (track['imageUrl'] != null && track['imageUrl']!.isNotEmpty)
+                  Image.network(
+                    _getHighResCoverUrl(track['imageUrl'], track['id']),
+                    fit: BoxFit.cover,
+                    cacheWidth: SettingsService().fullScreenCover ? null : 8,
+                    errorBuilder: (context, error, stackTrace) => Image.network(
+                      'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
                       fit: BoxFit.cover,
-                      cacheWidth: SettingsService().fullScreenCover ? null : 8,
-                      errorBuilder: (context, error, stackTrace) => Image.network(
-                        'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
-                        fit: BoxFit.cover,
-                      ),
                     ),
                   ),
-                if (!SettingsService().fullScreenCover)
+                if (!SettingsService().fullScreenCover && isDynamic)
                   Container(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                   ),
                 if (SettingsService().fullScreenCover)
                   Container(
@@ -393,8 +415,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.3),
-                          Colors.black.withOpacity(0.8),
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.black.withValues(alpha: 0.8),
                         ],
                         stops: const [0.0, 0.8],
                       ),
@@ -482,15 +504,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: AspectRatio(
                           aspectRatio: 1,
-                          child: Transform.scale(
-                            scale: ((track['imageUrl'] ?? '').contains('ytimg.com')) ? 1.34 : 1.0,
-                            child: Image.network(
-                              track['imageUrl']!,
+                          child: Image.network(
+                            _getHighResCoverUrl(track['imageUrl'], track['id']),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Image.network(
+                              'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Image.network(
-                                'https://i.ytimg.com/vi/${track['id']}/hqdefault.jpg',
-                                fit: BoxFit.cover,
-                              ),
                             ),
                           ),
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/settings_service.dart';
 
 class AnimatedEqualizer extends StatefulWidget {
   final bool isAudioPlaying;
@@ -17,7 +18,7 @@ class _AnimatedEqualizerState extends State<AnimatedEqualizer> with SingleTicker
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    if (widget.isAudioPlaying) {
+    if (widget.isAudioPlaying && !SettingsService().reduceAnimation) {
       _controller.repeat(reverse: true);
     }
   }
@@ -26,7 +27,7 @@ class _AnimatedEqualizerState extends State<AnimatedEqualizer> with SingleTicker
   void didUpdateWidget(AnimatedEqualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isAudioPlaying != oldWidget.isAudioPlaying) {
-      if (widget.isAudioPlaying) {
+      if (widget.isAudioPlaying && !SettingsService().reduceAnimation) {
         _controller.repeat(reverse: true);
       } else {
         _controller.animateTo(0.0, duration: const Duration(milliseconds: 300));

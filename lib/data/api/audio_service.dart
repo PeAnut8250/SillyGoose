@@ -80,7 +80,7 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
     _player.setVolume(val);
     notifyListeners();
   }
-  bool get hasNext => _currentIndex < _queueData.length - 1 || isAutoplayEnabled;
+  bool get hasNext => _queueData.isNotEmpty;
   bool get hasPrevious => _currentIndex > 0;
   
   Duration _lastPosition = Duration.zero;
@@ -542,7 +542,7 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       }
       
       // Filter out songs that are already in the queue to prevent immediate duplicates
-      // AND aggressively filter out podcasts/comedy that might have slipped through from history!
+      // AND aggressively filter out podcasts/comedy/jukebox compilations that might have slipped through!
       List<Map<String, String>> uniqueNewTracks = [];
       for (final track in newTracks) {
         final title = (track['title'] ?? '').toLowerCase();
@@ -551,10 +551,32 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         bool isPodcast = title.contains('comedy') || title.contains('podcast') || 
                          title.contains('episode') || title.contains('interview') || 
                          title.contains('vlog') || title.contains('stand up') ||
+                         title.contains('standup') || title.contains('latent') ||
+                         title.contains('season') || title.contains('s01') ||
+                         title.contains('s02') || title.contains('s03') ||
+                         title.contains('roast') || title.contains('uncensored') ||
+                         title.contains('reaction') || title.contains('trailer') ||
                          subtitle.contains('comedy') || subtitle.contains('podcast') ||
+                         subtitle.contains('samay') || subtitle.contains('tanmay') ||
                          subtitle.contains('set india');
+
+        bool isCompilation = title.contains('jukebox') ||
+                             title.contains('all songs') ||
+                             title.contains('all song') ||
+                             title.contains('full album') ||
+                             title.contains('non-stop') ||
+                             title.contains('non stop') ||
+                             title.contains('nonstop') ||
+                             title.contains('compilation') ||
+                             title.contains('full songs') ||
+                             title.contains('greatest hits') ||
+                             title.contains('song collection') ||
+                             title.contains('songs collection') ||
+                             title.contains('mashup') ||
+                             subtitle.contains('jukebox') ||
+                             subtitle.contains('all songs');
                          
-        if (isPodcast) continue;
+        if (isPodcast || isCompilation) continue;
         
         if (!_queueData.any((t) => t['id'] == track['id']) && 
             !uniqueNewTracks.any((t) => t['id'] == track['id'])) {
@@ -736,6 +758,33 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       // (Do not call stop() here, as it dismisses the Android notification!)
       if (_player.playing) {
         await _player.pause();
+      }
+
+      // Check if this track is downloaded locally for offline playback!
+      String? localPath = track['localPath'] ?? _queueData[_currentIndex]['localPath'];
+      if (localPath != null && await File(localPath).exists()) {
+        _currentTargetUrl = localPath;
+        _isLoading = false;
+        _saveState();
+        notifyListeners();
+        
+        final item = asrv.MediaItem(
+          id: track['id']!,
+          title: track['title'] ?? 'Unknown Track',
+          artist: track['subtitle'] ?? 'Unknown Artist',
+          artUri: track['imageUrl'] != null ? Uri.parse(track['imageUrl']!) : null,
+        );
+        if (!Platform.isWindows && !Platform.isLinux) {
+          mediaItem.add(item);
+        }
+
+        await _player.setAudioSource(AudioSource.uri(Uri.file(localPath), tag: item));
+        await _player.play();
+        
+        if (isAutoplayEnabled && hasNext) {
+          _preloadNextUrls();
+        }
+        return;
       }
 
       // Check if we already pre-fetched the URL in the background!
@@ -1012,16 +1061,16 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
     } else if (repeatMode == 1 && _queueData.isNotEmpty) {
       // Repeat All: Loop back to the first song in queue!
       playTrack(_queueData[0]);
-    } else if (isAutoplayEnabled && currentTrack != null) {
-      // We are at the end of the queue, but autoplay is enabled. 
-      // Force fetch more tracks explicitly before skipping!
+    } else if (currentTrack != null) {
+      // Endless playback: auto-enable autoplay and fetch new similar tracks!
+      isAutoplayEnabled = true;
       _isLoading = true;
       notifyListeners();
       
       try {
         await _fetchMoreRelatedTracks(currentTrack!['id']!);
       } catch (e) {
-        print('Error fetching more tracks in skipToNext: $e');
+        print('Error fetching endless tracks in skipToNext: $e');
       }
       
       if (_currentIndex < _queueData.length - 1) {
@@ -1030,8 +1079,6 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         _isLoading = false;
         notifyListeners();
       }
-    } else if (repeatMode == 1 && _queueData.isNotEmpty) {
-      playTrack(_queueData[0]);
     }
   }
 
