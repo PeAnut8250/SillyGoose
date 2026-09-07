@@ -15,7 +15,6 @@ import '../screens/artist_screen.dart';
 import '../screens/queue_screen.dart';
 import '../widgets/audio_device_dropdown.dart';
 import '../components/app_toast.dart';
-import '../components/goosee_icons.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -725,7 +724,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 26),
+                            icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 22),
                             color: isLiked ? const Color(0xFFE91E63) : fgColor.withOpacity(0.4),
                             onPressed: () {
                               if (currentTrack != null) {
@@ -736,18 +735,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             },
                           ),
                           IconButton(
-                            icon: GooseeShuffleIcon(
-                              size: 28,
-                              color: audioService.isShuffleEnabled ? fgColor : fgColor.withOpacity(0.4),
-                            ),
+                            icon: const Icon(CupertinoIcons.shuffle, size: 20),
+                            color: audioService.isShuffleEnabled ? fgColor : fgColor.withOpacity(0.4),
                             onPressed: () => audioService.toggleShuffle(),
                           ),
                           IconButton(
-                            icon: GooseeRepeatIcon(
-                              size: 28,
-                              isOne: audioService.repeatMode == 2,
-                              color: audioService.repeatMode != 0 ? fgColor : fgColor.withOpacity(0.4),
+                            icon: Icon(
+                              audioService.repeatMode == 2 ? CupertinoIcons.repeat_1 : CupertinoIcons.repeat,
+                              size: 20,
                             ),
+                            color: audioService.repeatMode != 0 ? fgColor : fgColor.withOpacity(0.4),
                             onPressed: () => audioService.toggleRepeat(),
                           ),
                           GestureDetector(
@@ -760,14 +757,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 color: audioService.isAutoplayEnabled ? const Color(0xFF4A4A4D) : const Color(0xFF28282B),
                                 shape: BoxShape.circle,
                               ),
-                              child: GooseeInfinityIcon(
-                                size: 26,
+                              child: Icon(
+                                Icons.all_inclusive_rounded,
+                                size: 22,
                                 color: audioService.isAutoplayEnabled ? fgColor : fgColor.withOpacity(0.5),
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.queue_music_rounded, size: 26),
+                            icon: const Icon(Icons.queue_music_rounded, size: 22),
                             color: fgColor.withOpacity(0.7),
                             onPressed: () {
                               showModalBottomSheet(
