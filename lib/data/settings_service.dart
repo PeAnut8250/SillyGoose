@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class SettingsService extends ChangeNotifier {
@@ -30,7 +29,6 @@ class SettingsService extends ChangeNotifier {
   bool dontRepeatSession = false;
   bool stopMusicOnClose = false;
   bool hideVolumeBar = false;
-  bool rickysAddon = true;
   bool jioSaavn = true;
 
   // Doubles / Strings
@@ -40,7 +38,28 @@ class SettingsService extends ChangeNotifier {
   String wifiQuality = 'High';
   String mobileDataQuality = 'High';
   String theme = 'Dynamic';
-  String lyricsSources = 'YouTube, Musixmatch...';
+  String lyricsSources = 'LyricsPlus, PaxSenix, LRCLIB...';
+  List<String> lyricsSourceOrder = [
+    'LyricsPlus',
+    'PaxSenix',
+    'BetterLyrics',
+    'SimpMusic',
+    'KuGou',
+    'LRCLIB',
+    'Musixmatch',
+    'Genius',
+  ];
+  List<String> activeLyricsSources = [
+    'LyricsPlus',
+    'PaxSenix',
+    'BetterLyrics',
+    'SimpMusic',
+    'KuGou',
+    'LRCLIB',
+    'Musixmatch',
+    'Genius',
+  ];
+  bool prioritizeSyllableSync = false;
   String appLanguage = 'English';
   String settingsBgColor = '#1C1C1C';
   double settingsGlassBlur = 0.0;
@@ -74,7 +93,6 @@ class SettingsService extends ChangeNotifier {
     dontRepeatSession = _prefs.getBool('dontRepeatSession') ?? false;
     stopMusicOnClose = _prefs.getBool('stopMusicOnClose') ?? false;
     hideVolumeBar = _prefs.getBool('hideVolumeBar') ?? false;
-    rickysAddon = _prefs.getBool('rickysAddon') ?? true;
     jioSaavn = _prefs.getBool('jioSaavn') ?? true;
 
     crossfade = _prefs.getDouble('crossfade') ?? 0.0;
@@ -86,6 +104,9 @@ class SettingsService extends ChangeNotifier {
     wifiQuality = _prefs.getString('wifiQuality') ?? 'High';
     mobileDataQuality = _prefs.getString('mobileDataQuality') ?? 'High';
     theme = _prefs.getString('theme') ?? 'Dynamic';
+    if (theme != 'System' && theme != 'Light' && theme != 'Dark' && theme != 'Dynamic') {
+      theme = 'Dynamic';
+    }
     settingsBgColor = _prefs.getString('settingsBgColor') ?? '#1C1C1C';
     themeNotifier.value = theme;
     
@@ -113,7 +134,6 @@ class SettingsService extends ChangeNotifier {
       case 'dontRepeatSession': dontRepeatSession = value; break;
       case 'stopMusicOnClose': stopMusicOnClose = value; break;
       case 'hideVolumeBar': hideVolumeBar = value; break;
-      case 'rickysAddon': rickysAddon = value; break;
       case 'jioSaavn': jioSaavn = value; break;
     }
     notifyListeners();
@@ -144,6 +164,52 @@ class SettingsService extends ChangeNotifier {
       case 'lyricsSources': lyricsSources = value; break;
       case 'appLanguage': appLanguage = value; break;
     }
+    notifyListeners();
+  }
+
+  void setLyricsSourceOrder(List<String> order) {
+    lyricsSourceOrder = List.from(order);
+    _prefs.setStringList('lyricsSourceOrder', lyricsSourceOrder);
+    notifyListeners();
+  }
+
+  void setLyricsSources(List<String> sources) {
+    activeLyricsSources = List.from(sources);
+    _prefs.setStringList('activeLyricsSources', activeLyricsSources);
+    notifyListeners();
+  }
+
+  void setPrioritizeSyllableSync(bool val) {
+    prioritizeSyllableSync = val;
+    _prefs.setBool('prioritizeSyllableSync', val);
+    notifyListeners();
+  }
+
+  void resetLyricsSourceSettings() {
+    lyricsSourceOrder = [
+      'LyricsPlus',
+      'PaxSenix',
+      'BetterLyrics',
+      'SimpMusic',
+      'KuGou',
+      'LRCLIB',
+      'Musixmatch',
+      'Genius',
+    ];
+    activeLyricsSources = [
+      'LyricsPlus',
+      'PaxSenix',
+      'BetterLyrics',
+      'SimpMusic',
+      'KuGou',
+      'LRCLIB',
+      'Musixmatch',
+      'Genius',
+    ];
+    prioritizeSyllableSync = false;
+    _prefs.setStringList('lyricsSourceOrder', lyricsSourceOrder);
+    _prefs.setStringList('activeLyricsSources', activeLyricsSources);
+    _prefs.setBool('prioritizeSyllableSync', false);
     notifyListeners();
   }
 }

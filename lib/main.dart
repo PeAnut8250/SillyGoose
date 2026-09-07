@@ -17,19 +17,19 @@ void main() async {
   await HistoryService().init();
   runApp(
     const ProviderScope(
-      child: BitChordApp(),
+      child: GooseeApp(),
     ),
   );
 }
 
-class BitChordApp extends StatefulWidget {
-  const BitChordApp({super.key});
+class GooseeApp extends StatefulWidget {
+  const GooseeApp({super.key});
 
   @override
-  State<BitChordApp> createState() => _BitChordAppState();
+  State<GooseeApp> createState() => _GooseeAppState();
 }
 
-class _BitChordAppState extends State<BitChordApp> {
+class _GooseeAppState extends State<GooseeApp> {
   @override
   void initState() {
     super.initState();

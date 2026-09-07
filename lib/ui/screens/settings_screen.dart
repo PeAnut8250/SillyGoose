@@ -7,8 +7,10 @@ import '../../data/history_service.dart';
 import '../../data/network_service.dart';
 import '../../data/app_localizations.dart';
 import '../../data/update_service.dart';
+import '../../data/song_cache_service.dart';
 import '../components/liquid_glass.dart';
 import '../components/mini_player.dart';
+import '../components/app_toast.dart';
 import 'sources_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -27,15 +29,32 @@ Color _hexToColor(String hex) {
 class _SettingsScreenState extends State<SettingsScreen> {
   final ScrollController _scrollController = ScrollController();
   double _scrollOffset = 0.0;
+  double _songCacheSizeMB = 0.0;
 
   @override
   void initState() {
     super.initState();
+    _loadCacheSize();
     _scrollController.addListener(() {
       setState(() {
         _scrollOffset = _scrollController.offset;
       });
     });
+  }
+
+  void _loadCacheSize() {
+    SongCacheService().getSongCacheSizeMB().then((sz) {
+      if (mounted) {
+        setState(() {
+          _songCacheSizeMB = sz;
+        });
+      }
+    });
+  }
+
+  void _showCustomToast(String message) {
+    if (!mounted) return;
+    showAppToast(context, message);
   }
 
   @override
@@ -190,7 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.wifi, 
                     title: l10n.onWifi, 
                     subtitle: network.isWifi ? '● Active' : 'Not connected', 
-                    subtitleColor: network.isWifi ? Colors.greenAccent : null,
+                    subtitleColor: network.isWifi ? Colors.white.withOpacity(0.6) : null,
                     valueText: settings.wifiQuality,
                     onTap: () => _showSelectionDialog(context, l10n.onWifi, ['Low', 'Normal', 'High', 'Lossless'], settings.wifiQuality, (val) => settings.setString('wifiQuality', val)),
                   ),
@@ -198,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.signal_cellular_alt, 
                     title: l10n.onMobileData, 
                     subtitle: network.isMobile ? '● Active' : 'Not connected',
-                    subtitleColor: network.isMobile ? Colors.greenAccent : null,
+                    subtitleColor: network.isMobile ? Colors.white.withOpacity(0.6) : null,
                     valueText: settings.mobileDataQuality,
                     onTap: () => _showSelectionDialog(context, l10n.onMobileData, ['Low', 'Normal', 'High', 'Lossless'], settings.mobileDataQuality, (val) => settings.setString('mobileDataQuality', val)),
                   ),
@@ -248,17 +267,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                         SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _ThemeButton(title: 'System', isSelected: settings.theme == 'System', onTap: () => settings.setString('theme', 'System')),
-                            _ThemeButton(title: 'Light', isSelected: settings.theme == 'Light', onTap: () => settings.setString('theme', 'Light')),
-                            _ThemeButton(title: 'Dark', isSelected: settings.theme == 'Dark', onTap: () => settings.setString('theme', 'Dark')),
-                            _ThemeButton(title: 'Cool', isSelected: settings.theme == 'Cool', onTap: () => settings.setString('theme', 'Cool')),
-                            _ThemeButton(title: 'Dynamic', isSelected: settings.theme == 'Dynamic', onTap: () => settings.setString('theme', 'Dynamic')),
-                            _ThemeButton(title: 'Shuffle Dynamic', isSelected: settings.theme == 'Shuffle Dynamic', onTap: () => settings.setString('theme', 'Shuffle Dynamic')),
-                          ],
+                        _SegmentedThemeSelector(
+                          currentTheme: settings.theme,
+                          onThemeChanged: (newTheme) => settings.setString('theme', newTheme),
                         ),
                       ],
                     ),
@@ -294,16 +305,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: (v) => settings.setBool('liquidGlass', v),
                   ),
                   _SettingsSwitchTile(icon: Icons.lyrics, title: 'Synced lyrics', subtitle: '...of the up the words as they\'re sung...', value: settings.syncedLyrics, onChanged: (v) => settings.setBool('syncedLyrics', v)),
-                  _SettingsNavTile(icon: Icons.source, title: 'Lyrics sources', subtitle: 'YouTube, Musixmatch...'),
+                  _SettingsNavTile(
+                    icon: Icons.source, 
+                    title: 'Lyrics sources', 
+                    subtitle: settings.activeLyricsSources.join(', ') + '...',
+                    onTap: () => _showLyricsSourcesDialog(context),
+                  ),
                 ],
               ),
 
               _SettingsHeader('STORAGE'),
               _SettingsGroup(
                 children: [
-                  _SettingsSliderTile(icon: Icons.storage, title: 'Song cache limit', subtitle: 'Disk space used to keep audio for instant loading...', value: settings.songCacheLimit, max: 2048, format: (v) => '${v.toInt()} MB', onChanged: (v) => settings.setDouble('songCacheLimit', v)),
-                  _SettingsNavTile(icon: Icons.cleaning_services, title: 'Clear song cache', subtitle: 'Frees space used by downloaded audio'),
-                  _SettingsNavTile(icon: Icons.delete_outline, title: 'Clear image cache', subtitle: 'Frees space used by album artwork'),
+                  _SettingsSliderTile(
+                    icon: Icons.storage,
+                    title: 'Song cache limit',
+                    subtitle: _songCacheSizeMB > 0 
+                        ? 'Disk space used for instant loading... (${_songCacheSizeMB.toStringAsFixed(1)} MB used)'
+                        : 'Disk space used to keep audio for instant loading...',
+                    value: settings.songCacheLimit,
+                    max: 2048,
+                    format: (v) => '${v.toInt()} MB',
+                    onChanged: (v) {
+                      settings.setDouble('songCacheLimit', v);
+                      SongCacheService().enforceCacheLimit();
+                      _loadCacheSize();
+                    },
+                  ),
+                  _SettingsNavTile(
+                    icon: Icons.cleaning_services,
+                    title: 'Clear song cache',
+                    subtitle: 'Frees space used by downloaded audio',
+                    onTap: () async {
+                      await SongCacheService().clearSongCache();
+                      _loadCacheSize();
+                      _showCustomToast('Song cache cleared');
+                    },
+                  ),
+                  _SettingsNavTile(
+                    icon: Icons.delete_outline,
+                    title: 'Clear image cache',
+                    subtitle: 'Frees space used by album artwork',
+                    onTap: () async {
+                      await SongCacheService().clearImageCache();
+                      _showCustomToast('Image cache cleared');
+                    },
+                  ),
                 ],
               ),
 
@@ -431,7 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsNavTile(
                       icon: Icons.system_update,
                       title: 'Check for Updates',
-                      subtitle: 'Check GitHub releases for new SillyGoose versions',
+                      subtitle: 'Version 1.0.2 • Tap to check GitHub releases',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Checking for updates...')),
@@ -449,6 +496,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                   ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                  child: Center(
+                    child: Text(
+                      'SillyGoose v1.0.2',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
                 ),
 
                 SizedBox(height: 50),
@@ -551,6 +612,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       },
+    );
+  }
+
+
+  void _showLyricsSourcesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _LyricsSourcesDialogContent(),
     );
   }
 
@@ -744,8 +813,8 @@ class _SettingsSwitchTile extends StatelessWidget {
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Theme.of(context).colorScheme.onSurface,
-        activeTrackColor: Colors.redAccent,
+        activeColor: Colors.black,
+        activeTrackColor: Colors.white,
         inactiveThumbColor: Colors.grey,
         inactiveTrackColor: Colors.grey.withOpacity(0.3),
       ),
@@ -844,14 +913,21 @@ class _SettingsSliderTile extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.54), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                SizedBox(height: 8),
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: Colors.redAccent,
-                    inactiveTrackColor: Colors.grey.withOpacity(0.3),
-                    thumbColor: Theme.of(context).colorScheme.onSurface,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    trackHeight: 4.0,
-                    overlayShape: SliderComponentShape.noOverlay,
+                    trackHeight: 8.0,
+                    activeTrackColor: Colors.white,
+                    inactiveTrackColor: Colors.white.withOpacity(0.12),
+                    thumbColor: Colors.white,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 9,
+                      elevation: 4,
+                      pressedElevation: 6,
+                    ),
+                    overlayColor: Colors.white.withOpacity(0.15),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                    trackShape: const RoundedRectSliderTrackShape(),
                   ),
                   child: Slider(
                     value: value,
@@ -869,34 +945,6 @@ class _SettingsSliderTile extends StatelessWidget {
   }
 }
 
-class _ThemeButton extends StatelessWidget {
-  final String title;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ThemeButton({required this.title, required this.isSelected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.redAccent : Colors.grey.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class FrostedIcon extends StatelessWidget {
   final IconData icon;
@@ -905,7 +953,6 @@ class FrostedIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final opacity = SettingsService().settingsIconOpacity;
-    final blur = SettingsService().settingsGlassBlur / 2; // Scale down blur for small icons
     return ShaderMask(
       shaderCallback: (bounds) => LinearGradient(
         begin: Alignment.topLeft,
@@ -918,6 +965,347 @@ class FrostedIcon extends StatelessWidget {
       ).createShader(bounds),
       blendMode: BlendMode.srcIn,
       child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 22),
+    );
+  }
+}
+
+class _SegmentedThemeSelector extends StatefulWidget {
+  final String currentTheme;
+  final ValueChanged<String> onThemeChanged;
+
+  const _SegmentedThemeSelector({
+    required this.currentTheme,
+    required this.onThemeChanged,
+  });
+
+  @override
+  State<_SegmentedThemeSelector> createState() => _SegmentedThemeSelectorState();
+}
+
+class _SegmentedThemeSelectorState extends State<_SegmentedThemeSelector> {
+  late String _selectedTheme;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTheme = widget.currentTheme;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SegmentedThemeSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentTheme != widget.currentTheme) {
+      _selectedTheme = widget.currentTheme;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const themes = ['System', 'Light', 'Dark', 'Dynamic'];
+    final selectedIndex = themes.indexOf(_selectedTheme).clamp(0, 3);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final surface = Theme.of(context).colorScheme.surface;
+
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: onSurface.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final itemWidth = totalWidth / themes.length;
+
+          return Stack(
+            children: [
+              // Smooth Sliding Pill Highlight
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                left: selectedIndex * itemWidth,
+                top: 0,
+                bottom: 0,
+                width: itemWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: onSurface,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+              ),
+
+              // Theme Options Row
+              Positioned.fill(
+                child: Row(
+                  children: List.generate(themes.length, (index) {
+                    final label = themes[index];
+                    final isSelected = index == selectedIndex;
+
+                    return Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          if (_selectedTheme == label) return;
+                          setState(() {
+                            _selectedTheme = label;
+                          });
+                          Future.microtask(() {
+                            widget.onThemeChanged(label);
+                          });
+                        },
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            style: TextStyle(
+                              color: isSelected ? surface : onSurface,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                            child: Text(label),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LyricsSourcesDialogContent extends StatefulWidget {
+  const _LyricsSourcesDialogContent();
+
+  @override
+  State<_LyricsSourcesDialogContent> createState() => _LyricsSourcesDialogContentState();
+}
+
+class _LyricsSourcesDialogContentState extends State<_LyricsSourcesDialogContent> {
+  static const Map<String, String> kSourceDetails = {
+    'LyricsPlus': 'Syllable by syllable, on community mirrors',
+    'PaxSenix': 'Apple Music timings again, on a second host',
+    'BetterLyrics': 'Apple Music timings, word by word',
+    'SimpMusic': 'Matched on the video, so never the wrong edit',
+    'KuGou': 'Whole lines, strong outside the English catalogue',
+    'LRCLIB': 'Whole lines only, and always up',
+    'Musixmatch': 'Whole lines, from the biggest lyrics database there is',
+    'Genius': 'Plain text fallback, massive web catalogue',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: SettingsService(),
+      builder: (context, _) {
+        final settings = SettingsService();
+        final order = settings.lyricsSourceOrder;
+        final selected = settings.activeLyricsSources;
+        final prioritizeSyllable = settings.prioritizeSyllableSync;
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Container(
+            width: 360,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.12),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Lyrics sources',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Drag handle to set priority order. Uncheck to disable source.',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.12)),
+                    Flexible(
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 440),
+                        child: ReorderableListView(
+                          shrinkWrap: true,
+                          buildDefaultDragHandles: false,
+                          onReorder: (oldIndex, newIndex) {
+                            if (newIndex > oldIndex) newIndex--;
+                            final list = List<String>.from(order);
+                            final item = list.removeAt(oldIndex);
+                            list.insert(newIndex, item);
+                            settings.setLyricsSourceOrder(list);
+                          },
+                          children: [
+                            for (int i = 0; i < order.length; i++)
+                              ListTile(
+                                key: ValueKey(order[i]),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                leading: ReorderableDragStartListener(
+                                  index: i,
+                                  child: Icon(
+                                    Icons.drag_handle_rounded,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35),
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  order[i],
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  kSourceDetails[order[i]] ?? 'Lyrics database source',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: selected.contains(order[i])
+                                    ? Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      )
+                                    : null,
+                                onTap: () {
+                                  final checked = selected.contains(order[i]);
+                                  if (checked && selected.length <= 1) return;
+                                  final newSelected = checked
+                                      ? (List<String>.from(selected)..remove(order[i]))
+                                      : (List<String>.from(selected)..add(order[i]));
+                                  settings.setLyricsSources(newSelected);
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.12)),
+                    InkWell(
+                      onTap: () {
+                        settings.setPrioritizeSyllableSync(!prioritizeSyllable);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Prioritize syllable sync',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Hold out for word-by-word synced sources',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (prioritizeSyllable)
+                              const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.12)),
+                    InkWell(
+                      onTap: () {
+                        settings.resetLyricsSourceSettings();
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Reset to Default',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Divider(height: 1, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.12)),
+                    InkWell(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

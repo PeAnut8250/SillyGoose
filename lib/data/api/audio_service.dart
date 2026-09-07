@@ -11,6 +11,7 @@ import 'youtube_service.dart';
 import 'jiosaavn_service.dart';
 import '../history_service.dart';
 import '../settings_service.dart';
+import '../song_cache_service.dart';
 
 class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.SeekHandler, ChangeNotifier {
   static late AudioService _instance;
@@ -144,6 +145,12 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
           // Notify listeners so UI updates immediately
           notifyListeners();
         }
+      }
+      repeatMode = prefs.getInt('repeat_mode') ?? 0;
+      isShuffleEnabled = prefs.getBool('shuffle_enabled') ?? false;
+      isAutoplayEnabled = prefs.getBool('autoplay_enabled') ?? true;
+      if (repeatMode == 2) {
+        _player.setLoopMode(LoopMode.one);
       }
     } catch (e) {
       print('Failed to restore playback state: $e');
@@ -570,14 +577,25 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
           SaavnStream? saavnStream;
           String? ytUrl;
 
-          await Future.wait([
-            _saavnService.resolveTopStream(title, artist).then((value) => saavnStream = value).catchError((_) => null),
-            _ytService.getAudioStreamUrl(_queueData[i]['id']!).then((value) => ytUrl = value).catchError((_) => null),
-          ]);
+          final stopVideoConv = SettingsService().stopVideoConversion;
+
+          if (stopVideoConv) {
+            // When "Stop converting video songs to audio version" is ON:
+            // Force pure high quality audio matching via JioSaavn first, fallback to YT audio stream.
+            saavnStream = await _saavnService.resolveTopStream(title, artist).catchError((_) => null);
+            if (saavnStream == null) {
+              ytUrl = await _ytService.getAudioStreamUrl(_queueData[i]['id']!).catchError((_) => null);
+            }
+          } else {
+            await Future.wait([
+              _saavnService.resolveTopStream(title, artist).then((value) => saavnStream = value).catchError((_) => null),
+              _ytService.getAudioStreamUrl(_queueData[i]['id']!).then((value) => ytUrl = value).catchError((_) => null),
+            ]);
+          }
           
           if (saavnStream != null) {
             _queueData[i]['streamUrl'] = saavnStream!.url;
-            _queueData[i]['audioSource'] = 'JioSaavn';
+            _queueData[i]['audioSource'] = 'JioSaavn (Pure Audio)';
             _queueData[i]['audioQuality'] = saavnStream!.kbps?.toString() ?? '320';
             _queueData[i]['audioCodec'] = 'AAC';
           } else if (ytUrl != null) {
@@ -702,10 +720,20 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         SaavnStream? saavnStream;
         String? ytUrl;
 
-        await Future.wait([
-          _saavnService.resolveTopStream(title, artist).then((value) => saavnStream = value).catchError((_) => null),
-          _ytService.getAudioStreamUrl(track['id']!).then((value) => ytUrl = value).catchError((_) => null),
-        ]);
+        final stopVideoConv = SettingsService().stopVideoConversion;
+
+        if (stopVideoConv) {
+          // Priority to official high quality studio audio stream (320kbps)
+          saavnStream = await _saavnService.resolveTopStream(title, artist).catchError((_) => null);
+          if (saavnStream == null) {
+            ytUrl = await _ytService.getAudioStreamUrl(track['id']!).catchError((_) => null);
+          }
+        } else {
+          await Future.wait([
+            _saavnService.resolveTopStream(title, artist).then((value) => saavnStream = value).catchError((_) => null),
+            _ytService.getAudioStreamUrl(track['id']!).then((value) => ytUrl = value).catchError((_) => null),
+          ]);
+        }
         
         // IMMEDIATE check: If the user clicked Next while we were loading, abort this outdated request
         // BEFORE it can corrupt the queue data with its stale results!
@@ -719,7 +747,7 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         if (saavnStream != null) {
           streamUrl = saavnStream!.url;
           _queueData[trackIndex]['streamUrl'] = streamUrl!;
-          _queueData[trackIndex]['audioSource'] = 'JioSaavn';
+          _queueData[trackIndex]['audioSource'] = 'JioSaavn (Pure Audio)';
           _queueData[trackIndex]['audioQuality'] = saavnStream!.kbps?.toString() ?? '320';
           _queueData[trackIndex]['audioCodec'] = 'AAC';
         } else if (ytUrl != null) {
@@ -762,15 +790,16 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         try {
           final finalUrl = getProxyUrl(streamUrl);
           
-          final audioSource = AudioSource.uri(
-            Uri.parse(finalUrl),
+          final audioSource = await SongCacheService().getAudioSource(
+            track['id']!,
+            finalUrl,
             headers: const {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             },
-            tag: track['id'],
           );
           
           await _player.setAudioSource(audioSource).timeout(const Duration(seconds: 15));
+          SongCacheService().enforceCacheLimit();
         } catch (e) {
           print('Failed to set audio source with cached URL, re-fetching fresh URL: $e');
           if (requestId != _currentRequestId) return;
@@ -864,16 +893,24 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
       _preloadNextUrls();
     }
     
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool('shuffle_enabled', isShuffleEnabled));
     notifyListeners();
   }
 
   void toggleRepeat() {
     repeatMode = (repeatMode + 1) % 3;
+    if (repeatMode == 2) {
+      _player.setLoopMode(LoopMode.one);
+    } else {
+      _player.setLoopMode(LoopMode.off);
+    }
+    SharedPreferences.getInstance().then((prefs) => prefs.setInt('repeat_mode', repeatMode));
     notifyListeners();
   }
 
   void toggleAutoplay() {
     isAutoplayEnabled = !isAutoplayEnabled;
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool('autoplay_enabled', isAutoplayEnabled));
     notifyListeners();
   }
 
@@ -934,6 +971,9 @@ class AudioService extends asrv.BaseAudioHandler with asrv.QueueHandler, asrv.Se
         // Fallback to slow loading if we skipped too fast
         playTrack(nextTrack);
       }
+    } else if (repeatMode == 1 && _queueData.isNotEmpty) {
+      // Repeat All: Loop back to the first song in queue!
+      playTrack(_queueData[0]);
     } else if (isAutoplayEnabled && currentTrack != null) {
       // We are at the end of the queue, but autoplay is enabled. 
       // Force fetch more tracks explicitly before skipping!

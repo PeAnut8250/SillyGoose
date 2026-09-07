@@ -4,6 +4,7 @@ import '../../data/api/audio_service.dart';
 import '../../data/api/youtube_service.dart';
 import '../../data/history_service.dart';
 import '../screens/artist_screen.dart';
+import '../components/app_toast.dart';
 
 void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
   final parentContext = context;
@@ -109,7 +110,7 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                         Navigator.pop(context);
                         HistoryService().toggleLike(track);
                         final action = isLiked ? 'Removed from' : 'Added to';
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$action Liked Songs')));
+                        showAppToast(parentContext, '$action Liked Songs');
                       }
                     );
                   }
@@ -120,12 +121,12 @@ void showSongOptionsMenu(BuildContext context, Map<String, String> track) {
                 _buildMenuItem(context, Icons.playlist_play_rounded, 'Play next', () {
                   Navigator.pop(context);
                   AudioService().addTrackNext(track);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Playing next: ${track['title']}')));
+                  showAppToast(parentContext, 'Playing next: ${track['title']}');
                 }),
                 _buildMenuItem(context, Icons.queue_music_rounded, 'Add to queue', () {
                   Navigator.pop(context);
                   AudioService().addTrackToQueue(track);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to queue: ${track['title']}')));
+                  showAppToast(parentContext, 'Added to queue: ${track['title']}');
                 }),
                 if (HistoryService().playlists.isNotEmpty)
                   _buildMenuItem(context, Icons.playlist_add_rounded, 'Add to playlist', () {

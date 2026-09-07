@@ -14,6 +14,8 @@ import 'package:flutter/cupertino.dart';
 import '../screens/artist_screen.dart';
 import '../screens/queue_screen.dart';
 import '../widgets/audio_device_dropdown.dart';
+import '../components/app_toast.dart';
+import '../components/goosee_icons.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -717,49 +719,55 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     final currentTrack = audioService.currentTrack;
                     final isLiked = currentTrack != null && HistoryService().isLiked(currentTrack['id']!);
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded),
-                            color: isLiked ? const Color(0xFFE91E63) : fgColor,
+                            icon: Icon(isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded, size: 26),
+                            color: isLiked ? const Color(0xFFE91E63) : fgColor.withOpacity(0.4),
                             onPressed: () {
                               if (currentTrack != null) {
                                 HistoryService().toggleLike(currentTrack);
                                 final action = isLiked ? 'Removed from' : 'Added to';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('$action Liked Songs'),
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
+                                showAppToast(context, '$action Liked Songs', bottomMargin: 40);
                               }
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.shuffle_rounded),
-                            color: audioService.isShuffleEnabled ? fgColor : fgColor.withOpacity(0.4),
+                            icon: GooseeShuffleIcon(
+                              size: 28,
+                              color: audioService.isShuffleEnabled ? fgColor : fgColor.withOpacity(0.4),
+                            ),
                             onPressed: () => audioService.toggleShuffle(),
                           ),
                           IconButton(
-                            icon: Icon(audioService.repeatMode == 2 ? Icons.repeat_one_rounded : Icons.repeat_rounded),
-                            color: audioService.repeatMode != 0 ? fgColor : fgColor.withOpacity(0.4),
+                            icon: GooseeRepeatIcon(
+                              size: 28,
+                              isOne: audioService.repeatMode == 2,
+                              color: audioService.repeatMode != 0 ? fgColor : fgColor.withOpacity(0.4),
+                            ),
                             onPressed: () => audioService.toggleRepeat(),
                           ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: audioService.isAutoplayEnabled ? fgColor.withOpacity(0.15) : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.all_inclusive_rounded),
-                              color: audioService.isAutoplayEnabled ? fgColor : fgColor.withOpacity(0.4),
-                              onPressed: () => audioService.toggleAutoplay(),
+                          GestureDetector(
+                            onTap: () => audioService.toggleAutoplay(),
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: audioService.isAutoplayEnabled ? const Color(0xFF4A4A4D) : const Color(0xFF28282B),
+                                shape: BoxShape.circle,
+                              ),
+                              child: GooseeInfinityIcon(
+                                size: 26,
+                                color: audioService.isAutoplayEnabled ? fgColor : fgColor.withOpacity(0.5),
+                              ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.queue_music_rounded),
+                            icon: const Icon(Icons.queue_music_rounded, size: 26),
                             color: fgColor.withOpacity(0.7),
                             onPressed: () {
                               showModalBottomSheet(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../data/api/audio_service.dart';
 import '../../data/api/lyrics_service.dart';
+import '../../data/settings_service.dart';
 import 'full_lyrics_screen.dart';
-import '../../data/api/lyrics_service.dart';
 
 class SyncedLyricsView extends StatefulWidget {
   final Map<String, String> track;
@@ -96,8 +96,12 @@ class _SyncedLyricsViewState extends State<SyncedLyricsView> {
     }
 
     return ListenableBuilder(
-      listenable: AudioService(),
+      listenable: Listenable.merge([AudioService(), SettingsService()]),
       builder: (context, _) {
+        if (!SettingsService().syncedLyrics) {
+          return const SizedBox(height: 24);
+        }
+
         final position = AudioService().position;
         final activeLyric = _getActiveLyric(position);
 

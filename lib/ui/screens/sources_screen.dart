@@ -10,7 +10,6 @@ class SourcesScreen extends StatefulWidget {
 }
 
 class _SourcesScreenState extends State<SourcesScreen> {
-  String _rickysStatus = 'Checking...';
   String _jioSaavnStatus = 'Checking...';
 
   @override
@@ -20,11 +19,6 @@ class _SourcesScreenState extends State<SourcesScreen> {
   }
 
   Future<void> _checkSources() async {
-    _checkUrl(
-      'https://monochrome.rickyaddons.dpdns.org',
-      onSuccess: () { if (mounted) setState(() => _rickysStatus = 'Reachable'); },
-      onError: (e) { if (mounted) setState(() => _rickysStatus = "Can't reach it — $e"); },
-    );
     _checkUrl(
       'https://www.jiosaavn.com',
       onSuccess: () { if (mounted) setState(() => _jioSaavnStatus = 'High Quality • 320kbps'); },
@@ -107,7 +101,6 @@ class _SourcesScreenState extends State<SourcesScreen> {
                       tooltip: 'Re-check sources',
                       onPressed: () {
                         setState(() {
-                          _rickysStatus = 'Checking...';
                           _jioSaavnStatus = 'Checking...';
                         });
                         _checkSources();
@@ -148,35 +141,13 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         children: [
                           _buildSourceTile(
                             context: context,
-                            enabled: settings.rickysAddon,
-                            index: '1',
-                            icon: Icons.extension,
-                            title: "Ricky's Addon",
-                            subtitle: _rickysStatus,
-                            subtitleColor: _rickysStatus == 'Reachable'
-                                ? Colors.greenAccent
-                                : _rickysStatus == 'Checking...'
-                                    ? Colors.white38
-                                    : Colors.redAccent,
-                            isChecking: _rickysStatus == 'Checking...',
-                            trailing: Switch(
-                              value: settings.rickysAddon,
-                              onChanged: (v) => settings.setBool('rickysAddon', v),
-                              activeColor: Colors.white,
-                              activeTrackColor: Colors.redAccent,
-                              inactiveThumbColor: Colors.grey,
-                              inactiveTrackColor: Colors.grey.withOpacity(0.3),
-                            ),
-                          ),
-                          _buildSourceTile(
-                            context: context,
                             enabled: settings.jioSaavn,
-                            index: '2',
+                            index: '1',
                             icon: Icons.graphic_eq,
                             title: "JioSaavn",
                             subtitle: _jioSaavnStatus,
                             subtitleColor: _jioSaavnStatus.startsWith('High Quality')
-                                ? Colors.greenAccent
+                                ? Colors.white.withOpacity(0.6)
                                 : _jioSaavnStatus == 'Checking...'
                                     ? Colors.white38
                                     : Colors.redAccent,
@@ -184,8 +155,8 @@ class _SourcesScreenState extends State<SourcesScreen> {
                             trailing: Switch(
                               value: settings.jioSaavn,
                               onChanged: (v) => settings.setBool('jioSaavn', v),
-                              activeColor: Colors.white,
-                              activeTrackColor: Colors.redAccent,
+                              activeColor: Colors.black,
+                              activeTrackColor: Colors.white,
                               inactiveThumbColor: Colors.grey,
                               inactiveTrackColor: Colors.grey.withOpacity(0.3),
                             ),
@@ -193,11 +164,11 @@ class _SourcesScreenState extends State<SourcesScreen> {
                           _buildSourceTile(
                             context: context,
                             enabled: true,
-                            index: '3',
+                            index: '2',
                             icon: Icons.play_circle_fill,
                             title: "YouTube Music",
                             subtitle: "Lossy · Full catalogue · Radio",
-                            subtitleColor: Colors.greenAccent,
+                            subtitleColor: Colors.white.withOpacity(0.6),
                             isLast: true,
                             trailing: Text(
                               'Always on',
