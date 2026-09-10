@@ -34,7 +34,10 @@ class _GooseeAppState extends State<GooseeApp> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      UpdateService.showUpdateDialogIfAvailable(context);
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext != null) {
+        UpdateService.showUpdateDialogIfAvailable(navContext);
+      }
     });
   }
 

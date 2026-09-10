@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -598,24 +599,39 @@ class YoutubeService {
           ? SettingsService().wifiQuality 
           : SettingsService().mobileDataQuality;
 
-      // Windows Media Foundation crashes (Item Error) on fragmented DASH streams (audioOnly).
-      // We MUST use progressive muxed (video+audio) streams on Windows to avoid crashing.
-      // Furthermore, YouTube heavily restricts DASH audio-only streams on mobile networks (yielding 403 Forbidden).
-      // We will universally use progressive muxed MP4 streams for maximum compatibility across all platforms!
+      // On Android/iOS, use high-bitrate audioOnly streams (Opus/M4A). On Windows/fallback, use muxed streams to prevent native crashes.
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+        final audioStreams = manifest.audioOnly.toList();
+        if (audioStreams.isNotEmpty) {
+          final sortedAudio = audioStreams
+            ..sort((a, b) => a.bitrate.bitsPerSecond.compareTo(b.bitrate.bitsPerSecond));
+
+          StreamInfo picked;
+          if (targetQuality == 'Low') {
+            picked = sortedAudio.first;
+          } else if (targetQuality == 'Normal') {
+            final idx = (sortedAudio.length * 0.25).floor().clamp(0, sortedAudio.length - 1);
+            picked = sortedAudio[idx];
+          } else if (targetQuality == 'High') {
+            final idx = (sortedAudio.length * 0.75).floor().clamp(0, sortedAudio.length - 1);
+            picked = sortedAudio[idx];
+          } else {
+            picked = sortedAudio.last; // Highest audio quality (160kbps Opus / 256kbps AAC)
+          }
+
+          print('[Mobile Audio Quality] $targetQuality → ${picked.bitrate} (${picked.container.name})');
+          return picked.url.toString();
+        }
+      }
+
       final muxedStreams = manifest.muxed.where(
         (stream) => stream.container.name.toLowerCase() == 'mp4'
       ).toList();
       
       if (muxedStreams.isNotEmpty) {
-        // Sort by bitrate ascending so index 0 = lowest, last = highest
         final sorted = muxedStreams.toList()
           ..sort((a, b) => a.bitrate.bitsPerSecond.compareTo(b.bitrate.bitsPerSecond));
 
-        // Map quality tiers to stream indices
-        // Low    → lowest bitrate stream
-        // Normal → 25th percentile (second lowest if available)
-        // High   → 75th percentile (second highest if available)
-        // Lossless → highest bitrate stream
         StreamInfo picked;
         if (targetQuality == 'Low') {
           picked = sorted.first;
@@ -626,7 +642,6 @@ class YoutubeService {
           final idx = (sorted.length * 0.75).floor().clamp(0, sorted.length - 1);
           picked = sorted[idx];
         } else {
-          // Lossless — pick highest bitrate
           picked = sorted.last;
         }
 

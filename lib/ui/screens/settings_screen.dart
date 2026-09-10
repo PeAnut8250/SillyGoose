@@ -14,6 +14,7 @@ import '../components/mini_player.dart';
 import '../components/app_toast.dart';
 import 'sources_screen.dart';
 import 'replay_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../data/data_backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -495,20 +496,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _SettingsHeader('ABOUT & UPDATES'),
                 _SettingsGroup(
                   children: [
-                    _SettingsNavTile(
-                      icon: Icons.system_update,
-                      title: 'Check for Updates',
-                      subtitle: 'Version 1.0.2 • Tap to check GitHub releases',
-                      onTap: () {
-                        showAppToast(context, 'Checking for updates...');
-                        UpdateService.checkForUpdate().then((info) {
-                          if (!context.mounted) return;
-                          if (info != null && info.hasUpdate) {
-                            UpdateService.showUpdateDialogIfAvailable(context);
-                          } else {
-                            showAppToast(context, 'SillyGoose is up to date! 🎉');
-                          }
-                        });
+                    FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        final currentVer = snapshot.data?.version ?? '1.0.3';
+                        return _SettingsNavTile(
+                          icon: Icons.system_update,
+                          title: 'Check for Updates',
+                          subtitle: 'Version $currentVer • Tap to check GitHub releases',
+                          onTap: () {
+                            showAppToast(context, 'Checking for updates...');
+                            UpdateService.checkForUpdate().then((info) {
+                              if (!context.mounted) return;
+                              if (info != null && info.hasUpdate) {
+                                UpdateService.showUpdateDialogIfAvailable(context);
+                              } else {
+                                showAppToast(context, 'SillyGoose is up to date! 🎉');
+                              }
+                            });
+                          },
+                        );
                       },
                     ),
                   ],
@@ -516,14 +523,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
                   child: Center(
-                    child: Text(
-                      'SillyGoose v1.0.2',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.8,
-                      ),
+                    child: FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snapshot) {
+                        final ver = snapshot.data?.version ?? '1.0.3';
+                        return Text(
+                          'SillyGoose v$ver',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.8,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
