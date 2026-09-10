@@ -192,13 +192,21 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       }
 
       // Launch native Android package installer for downloaded APK
+      final intentUri = Uri.parse('content://${filePath}');
       final fileUri = Uri.file(filePath);
-      if (await canLaunchUrl(fileUri)) {
-        await launchUrl(fileUri, mode: LaunchMode.externalApplication);
-      } else {
-        // Fallback open via url_launcher scheme
-        final apkUri = Uri.parse('file://$filePath');
-        await launchUrl(apkUri, mode: LaunchMode.externalApplication);
+
+      bool launched = false;
+      try {
+        if (await canLaunchUrl(fileUri)) {
+          launched = await launchUrl(fileUri, mode: LaunchMode.externalApplication);
+        }
+      } catch (_) {}
+
+      if (!launched) {
+        final downloadBrowserUri = Uri.parse(widget.info.downloadUrl);
+        if (await canLaunchUrl(downloadBrowserUri)) {
+          await launchUrl(downloadBrowserUri, mode: LaunchMode.externalApplication);
+        }
       }
     } catch (e) {
       debugPrint('In-app download error: $e');
