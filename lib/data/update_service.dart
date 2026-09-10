@@ -49,7 +49,11 @@ class UpdateService {
         final data = json.decode(response.body);
         final String tag = (data['tag_name'] ?? '').toString().replaceAll('v', '').trim();
         final String title = data['name'] ?? 'SillyGoose $tag Update';
-        final String notes = data['body'] ?? 'Performance improvements and bug fixes.';
+        final String rawNotes = (data['body'] ?? '').toString();
+        final String cleanedNotes = rawNotes.replaceAll(RegExp(r'\*\*Full Changelog\*\*:.*'), '').trim();
+        final String notes = cleanedNotes.isEmpty 
+            ? '🚀 Performance improvements, new features, and bug fixes.' 
+            : cleanedNotes;
         final String htmlUrl = data['html_url'] ?? '';
 
         String downloadUrl = htmlUrl;
@@ -208,7 +212,9 @@ class _UpdateDialog extends StatelessWidget {
               ),
               child: SingleChildScrollView(
                 child: Text(
-                  info.releaseNotes,
+                  info.releaseNotes.replaceAll(RegExp(r'https?://[^\s]+'), '').trim().isEmpty 
+                    ? '⚡ Performance improvements, new features, and bug fixes.'
+                    : info.releaseNotes,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
                     fontSize: 13,

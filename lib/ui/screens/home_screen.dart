@@ -421,39 +421,49 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? Theme.of(context).colorScheme.onSurface
                           : Colors.white70;
 
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Background (visible when scrolled)
-                          Positioned.fill(
-                            child: AnimatedOpacity(
-                              opacity: _scrollOffset > 10 ? 1.0 : 0.0,
-                              duration: const Duration(milliseconds: 200),
-                              child: LiquidGlass(
-                                forceOpaque: !SettingsService().liquidGlass,
-                                child: Container(),
-                              ),
-                            ),
-                          ),
-                          // Foreground
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context, rootNavigator: true).push(
-                                PageRouteBuilder(
-                                  pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
-                                  transitionDuration: Duration.zero,
-                                  reverseTransitionDuration: Duration.zero,
+                      return ValueListenableBuilder<AppUpdateInfo?>(
+                        valueListenable: UpdateService.updateNotifier,
+                        builder: (context, updateInfo, child) {
+                          final hasUpdate = updateInfo?.hasUpdate ?? false;
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasUpdate) ...[
+                                GestureDetector(
+                                  onTap: () {
+                                    if (updateInfo != null) {
+                                      UpdateService.showUpdateDialogIfAvailable(context);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.system_update_rounded,
+                                      color: Theme.of(context).colorScheme.primary,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              color: Colors.transparent,
-                              child: ValueListenableBuilder<AppUpdateInfo?>(
-                                valueListenable: UpdateService.updateNotifier,
-                                builder: (context, updateInfo, child) {
-                                  final hasUpdate = updateInfo?.hasUpdate ?? false;
-                                  return Stack(
+                                const SizedBox(width: 8),
+                              ],
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.of(context, rootNavigator: true).push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation1, animation2) => const SettingsScreen(),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  color: Colors.transparent,
+                                  child: Stack(
                                     clipBehavior: Clip.none,
                                     children: [
                                       Icon(Icons.person, color: dynamicColor, size: 24),
@@ -479,12 +489,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                         ),
                                     ],
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                            ],
+                          );
+                        },
                       );
                     }
                   ),
